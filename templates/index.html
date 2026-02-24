@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- 60秒ごとに自動リフレッシュして常に最新の天気を取得 -->
+    <meta http-equiv="refresh" content="60">
+    <title>FF14天候EX+予報 - コスモエクスプローラー</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+    <div class="box-container">
+        <!-- おすすめタスクエリア -->
+        <p
+            style="margin-top: 5px; border-top: 1px dotted #1a2a32; padding-top: 20px; font-size: 13px; color: #4ed8d1; font-weight: bold; margin-bottom: 10px;">
+            <span class="neon-dot">●</span> 今最も優先すべきタスク
+        </p>
+        <div class="recommendation-area"
+            style="background: #162432; border: 1px solid #23374b; border-radius: 8px; padding: 15px; margin-bottom: 25px;">
+            <!-- RECOMMENDATION_PLACEHOLDER -->
+        </div>
+
+        <!-- 天気確認エリア -->
+        <h2 class="main-title"><span class="neon-dot">●</span> 今後6時間（LT）の天候EX+タイミング</h2>
+
+        <div class="grid-container">
+            <!-- WEATHER_PLACEHOLDER -->
+        </div>
+
+        <!-- リアルタイム・ミッションエリア -->
+        <div class="mission-area">
+            <h2 class="main-title"><span class="neon-dot">●</span> 各エリアのミッション状況</h2>
+            <div class="mission-grid">
+                <!-- MISSION_PLACEHOLDER -->
+            </div>
+        </div>
+
+        <!-- コスモクレジット・アイテム一覧エリア -->
+        <div class="credit-area">
+            <details>
+                <summary class="main-title"
+                    style="color: #4ed8d1; cursor: pointer; border: 1px solid #1a2a32; padding: 12px; border-radius: 6px; background: #0d1620;">
+                    <span class="neon-dot">●</span> コスモクレジット交換アイテム一覧 (クリックして展開)
+                </summary>
+                <div class="credit-grid">
+                    <!-- CREDIT_PLACEHOLDER -->
+                </div>
+            </details>
+        </div>
+
+        <!-- レア/高額アイテム相場エリア -->
+        <div class="rare-items-area" style="margin-top: 15px;">
+            <details open>
+                <summary class="main-title"
+                    style="color: #f7ce55; cursor: pointer; border: 1px solid #1a2a32; padding: 12px; border-radius: 6px; background: #0d1620;">
+                    <span class="neon-dot" style="color: #f7ce55;">●</span> レア/高額アイテム相場 (JP最安値)
+                </summary>
+                <div class="rare-items-content" style="padding: 10px;">
+                    <!-- RARE_ITEMS_PLACEHOLDER -->
+                </div>
+            </details>
+        </div>
+
+        <!-- クレジット獲得量目安エリア -->
+        <p
+            style="margin-top: 40px; border-top: 1px dotted #1a2a32; padding-top: 20px; font-size: 13px; color: #f7ce55; font-weight: bold; margin-bottom: 10px;">
+            <span class="neon-dot">●</span> クレジット獲得量目安
+        </p>
+        <div class="reward-area" style="border-top: none; padding-top: 0;">
+            <div class="reward-grid">
+                <!-- CREDIT_REWARD_PLACEHOLDER -->
+            </div>
+        </div>
+
+
+    </div>
+
+    </div>
+</body>
+
+</html>

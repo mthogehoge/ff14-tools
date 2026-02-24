@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+ENV/
+
+# Local data / Backups
+index/
+csv/*.xlsx
+csv/*.xlsm
+
+# OS
+.DS_Store
+Thumbs.db
