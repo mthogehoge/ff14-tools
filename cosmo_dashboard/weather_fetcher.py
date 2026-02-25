@@ -3,10 +3,12 @@ import time
 import math
 import json
 import urllib.request
+import threading
 from datetime import datetime
 import http.server
 import socketserver
 from EorzeaEnv import EorzeaWeather, EorzeaLang
+import re
 
 ZONES = [
     {
@@ -169,9 +171,9 @@ COSMO_CREDIT_DATA = [
             {"name": "スペースダルメル・ホイッスル", "price": "29,000", "id": 46825},
             {"name": "量産型パワーローダー認証鍵", "price": "20,000", "id": 50445},
             {"name": "レッドホイールローダー起動鍵", "price": "20,000", "id": 50446},
-            {"name": "ポートレート教材:コスモエクスプローラー1", "price": "6,000"},
-            {"name": "ポートレート教材:コスモエクスプローラー2", "price": "6,000"},
-            {"name": "ポートレート教材:コスモエクスプローラー3", "price": "6,000"},
+            {"name": "ポートレート教材:コスモエクスプローラー1", "price": "6,000", "id": 48091},
+            {"name": "ポートレート教材:コスモエクスプローラー2", "price": "6,000", "id": 46768},
+            {"name": "ポートレート教材:コスモエクスプローラー3", "price": "6,000", "id": 50019},
             {"name": "カード:パワーローダー", "price": "4,000"},
             {"name": "カード:ネミングウェイ", "price": "6,000"},
             {"name": "カード:スペースダルメル", "price": "4,000"},
@@ -208,10 +210,10 @@ COSMO_CREDIT_DATA = [
             {"name": "最高級マテ茶葉", "price": "30"},
             {"name": "アヒ・アマリージョ", "price": "30"},
             {"name": "石匠の研磨剤", "price": "1,000", "id": 46252},
-            {"name": "黄金の霊砂", "price": "200"},
-            {"name": "幻岩の霊砂", "price": "400"},
-            {"name": "幻葉の霊砂", "price": "400"},
-            {"name": "幻海の霊砂", "price": "400"},
+            {"name": "黄金の霊砂", "price": "200", "id": 44035},
+            {"name": "幻岩の霊砂", "price": "400", "id": 44036},
+            {"name": "幻葉の霊砂", "price": "400", "id": 44037},
+            {"name": "幻海の霊砂", "price": "400", "id": 44038},
             {"name": "紫電の霊砂", "price": "600", "id": 46246},
             {"name": "高濃縮錬金薬", "price": "250", "id": 44848},
             {"name": "クラフターの製図用紙", "price": "30"},
@@ -277,60 +279,75 @@ RARE_ITEMS_DATA = [
 
 # キャッシュ用グローバル変数
 MARKET_PRICE_CACHE = {}
-LAST_API_CALL = 0
-CACHE_DURATION = 300 # 5分キャッシュ
+CACHE_DURATION = 300 # 5分おきに更新
+
+def market_price_worker():
+    """バックグラウンドでマーケット価格を定期更新するスレッド"""
+    global MARKET_PRICE_CACHE
+    
+    while True:
+        try:
+            item_ids = []
+            for cat in COSMO_CREDIT_DATA:
+                for item in cat['items']:
+                    if 'id' in item:
+                        item_ids.append(str(item['id']))
+            
+            for item in RARE_ITEMS_DATA:
+                item_ids.append(str(item['id']))
+            
+            if not item_ids:
+                time.sleep(60)
+                continue
+                
+            # Universalis API (Japan Region) - 負荷軽減のため10件ずつ分割して取得
+            new_cache = {}
+            chunk_size = 10
+            for i in range(0, len(item_ids), chunk_size):
+                chunk = item_ids[i:i + chunk_size]
+                item_ids_str = ",".join(chunk)
+                url = f"https://universalis.app/api/v2/Japan/{item_ids_str}?listings=0&entries=1"
+                
+                req = urllib.request.Request(url, headers={'User-Agent': 'FF14_Dashboard/1.0'})
+                try:
+                    with urllib.request.urlopen(req, timeout=15) as response:
+                        data = json.loads(response.read().decode())
+                        
+                        items = data.get('items', {})
+                        if not items and 'itemID' in data:
+                            items = {str(data['itemID']): data}
+
+                        for iid_str, idata in items.items():
+                            price = idata.get('minPrice')
+                            n_price = idata.get('minPriceNQ')
+                            h_price = idata.get('minPriceHQ')
+                            
+                            final_price = price or n_price or h_price or 0
+                            velocity = idata.get('regularSaleVelocity', 0)
+                            
+                            new_cache[int(iid_str)] = {
+                                'price': f"{int(final_price):,}" if final_price > 0 else "---",
+                                'velocity': velocity
+                            }
+                except Exception as chunk_er:
+                    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Chunk fetch error for {item_ids_str}: {chunk_er}")
+                
+                # APIへの負荷軽減のため少し待機
+                time.sleep(0.5)
+            
+            if new_cache:
+                MARKET_PRICE_CACHE = new_cache
+                print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Market prices updated (Background, {len(new_cache)} items).")
+                
+        except Exception as e:
+            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Error in background price update loop: {e}")
+            
+        # 次の更新まで待機
+        time.sleep(CACHE_DURATION)
 
 def fetch_market_prices():
-    global MARKET_PRICE_CACHE, LAST_API_CALL
-    
-    current_time = time.time()
-    if current_time - LAST_API_CALL < CACHE_DURATION and MARKET_PRICE_CACHE:
-        return MARKET_PRICE_CACHE
-    
-    item_ids = []
-    for cat in COSMO_CREDIT_DATA:
-        for item in cat['items']:
-            if 'id' in item:
-                item_ids.append(str(item['id']))
-    
-    for item in RARE_ITEMS_DATA:
-        item_ids.append(str(item['id']))
-    
-    if not item_ids:
-        return {}
-        
-    try:
-        # Universalis API (Japan Region) - 最大100件まで一括取得可能
-        item_ids_str = ",".join(item_ids[:100])
-        # entries=1を指定することで負荷を抑えつつregularSaleVelocityを取得可能にする
-        url = f"https://universalis.app/api/v2/Japan/{item_ids_str}?listings=0&entries=1"
-        
-        req = urllib.request.Request(url, headers={'User-Agent': 'FF14_Dashboard/1.0'})
-        with urllib.request.urlopen(req, timeout=10) as response:
-            data = json.loads(response.read().decode())
-            
-            new_cache = {}
-            # 複数アイテムの場合は'items'キーに含まれる
-            items_data = data.get('items', {})
-            if not items_data and 'minPrice' in data: # 単一アイテムの場合
-                items_data = {str(data['itemID']): data}
-                
-            for iid, info in items_data.items():
-                min_price = info.get('minPrice', 0)
-                try:
-                    velocity = float(info.get('regularSaleVelocity') or 0.0)
-                except:
-                    velocity = 0.0
-                price_str = f"{min_price:,}" if min_price > 0 else "---"
-                new_cache[int(iid)] = {'price': price_str, 'velocity': velocity}
-            
-            MARKET_PRICE_CACHE = new_cache
-            LAST_API_CALL = current_time
-            print(f"Market prices updated from Universalis at {datetime.now()}")
-            return MARKET_PRICE_CACHE
-    except Exception as e:
-        print(f"Error fetching market prices: {e}")
-        return MARKET_PRICE_CACHE
+    """現在のキャッシュを即座に返す (API通信は行わない)"""
+    return MARKET_PRICE_CACHE
 
 WEATHER_PERIOD = 1400  # 1400 LT seconds = 8 ET hours
 NUM_PERIODS = 17       # 17 periods * 23.3 mins = ~6.6 hours (covers 6 hours)
@@ -379,7 +396,8 @@ def generate_html(forecast_data):
             weather_html += "今後6時間、該当天候なし"
         else:
             for m in matches:
-                weather_html += f"""                    <div class="result-item"><span class="result-time">{m['time_text']}</span> <span class="weather-badge">{m['weather']}</span></div>\n"""
+                weather_html += f"""                    <div class="result-item"><span class="result-time">{m['time_text']}</span> <span class="weather-badge">{m['weather']}</span></div>
+"""
                 
         weather_html += """                </div>
             </div>
@@ -461,32 +479,31 @@ def generate_html(forecast_data):
     best_velocity = 0.0
     for cat in COSMO_CREDIT_DATA:
         for item in cat['items']:
-            item_data = prices.get(item.get('id', 0), {})
-            market_price_str = item_data.get('price', '---') if isinstance(item_data, dict) else '---'
             try:
-                velocity = float(item_data.get('velocity') or 0.0) if isinstance(item_data, dict) else 0.0
-            except:
-                velocity = 0.0
-            
-            if market_price_str != "---":
-                try:
+                item_data = prices.get(item.get('id', 0), {})
+                market_price_str = item_data.get('price', '---') if isinstance(item_data, dict) else '---'
+                raw_velocity = float(item_data.get('velocity', 1.0)) if isinstance(item_data, dict) else 1.0
+                velocity = raw_velocity if raw_velocity > 0 else 1.0
+                
+                if market_price_str != "---":
                     gil = int(market_price_str.replace(',', ''))
-                    credit = int(item['price'].replace(',', ''))
+                    credit_str = re.sub(r'[^0-9]', '', str(item.get('price', '0')))
+                    credit = int(credit_str) if credit_str else 0
+                    
                     if credit > 0:
                         eff = gil / credit
-                        # 売れ行き(1日あたりの平均販売数)をスコアに加味
-                        # velocityが1.0以上なら満点、それ以下ならペナルティを課す
                         safe_velocity = max(velocity, 0.01)
                         weight = min(1.0, safe_velocity / 1.0)
                         score = eff * weight
-                        
+                        print(f"DEBUG: {item['name']} - Gil:{gil}, Credit:{credit}, Eff:{eff:.2f}, Vel:{velocity}, Score:{score:.2f}")
+
                         if score > max_score:
                             max_score = score
-                            max_efficiency = eff # 実際の換金効率は生のまま保持
+                            max_efficiency = eff
                             best_item_name = item['name']
                             best_velocity = velocity
-                except:
-                    pass
+            except Exception as e:
+                print(f"Error calculating item EV for {item.get('name', 'Unknown')}: {e}")
 
     now_dt = datetime.now()
     now_m = now_dt.minute
@@ -500,6 +517,10 @@ def generate_html(forecast_data):
         min_to_op = next_op - now_m
 
     recommend_html = "<ul style='color: #e2f1f8; font-size: 14px; line-height: 1.6; padding-left: 20px; margin: 0;'>"
+    if max_efficiency <= 0:
+        max_efficiency = 25.0
+        best_item_name = "エラー:相場取得不可 (25gil換算)"
+        
     if max_efficiency > 0:
         vel_text = "売れ行き良好" if best_velocity >= 1.0 else "売れ行き低め"
         recommend_html += f"<li style='margin-bottom: 15px; list-style-type: none; margin-left: -20px;'><div style='background: rgba(247, 206, 85, 0.1); border: 1px solid rgba(247, 206, 85, 0.3); padding: 10px; border-radius: 6px;'><span style='color: #f7ce55; font-weight: bold;'>💰 現在の最高金策アイテム:</span> <strong>{best_item_name}</strong> (1コスモクレジットあたり約 <span style='color: #f7ce55;'>{max_efficiency:.1f} gil</span> / <span style='color: #f7ce55;'>{vel_text}</span>)<br><span style='font-size: 11px; color: #8da1b5; display: inline-block; margin-top: 5px; line-height: 1.4;'>※価格だけでなく、直近50件の取引履歴から「1日あたりの平均販売数(速)」を算出し、スコア化して選出しています。<br>1日に1個以上売れているアイテムは健全とし、それ未満のものは売れないリスクがあるとして評価を下げ、『実際にギルにしやすく価格も高い』アイテムを優先して表示します。</span></div></li>"
@@ -520,16 +541,51 @@ def generate_html(forecast_data):
     # アクティブな高ランクミッションを探す
     active_ex_crafter = []
     active_a_crafter = []
+    active_ex_crafter_areas = {}
+    
     active_ex_gatherer = []
     active_a_gatherer = []
+    active_ex_gatherer_areas = {}
     
     # 指定された6クラスのみを対象とする
     allowed_gatherers = ["採掘師", "園芸師", "漁師"]
     allowed_crafters = ["革細工師", "彫金師", "錬金術師"]
     
+    # 報酬定数の設定
+    AREA_TO_COSMO_RATIO = 1.8
+    # マーケット価格の取得（証書、パック）
+    cert_paenna_price = int(prices.get(47343, {}).get('price', '0').replace(',', '')) if prices.get(47343, {}).get('price', '0') != '---' else 0
+    if cert_paenna_price == 0: cert_paenna_price = 100000
+
+    cert_oizys_price = int(prices.get(50829, {}).get('price', '0').replace(',', '')) if prices.get(50829, {}).get('price', '0') != '---' else 0
+    if cert_oizys_price == 0: cert_oizys_price = 200000
+
+    pack_price = int(prices.get(50414, {}).get('price', '0').replace(',', '')) if prices.get(50414, {}).get('price', '0') != '---' else 0
+    if pack_price == 0: pack_price = 15000
+
+    # 報酬データ（固定値）に基づくEV計算用変数
+    best_crafter_ev = 0
+    best_crafter_job_type = ""
+    best_crafter_breakdown = ""
+
+    best_gatherer_ev = 0
+    best_gatherer_job_type = ""
+    best_gatherer_breakdown = ""
+
     for mdata in MISSION_DATA:
         area = mdata['area']
         area_short = area.split('（')[0] if '（' in area else area
+        
+        # 表示名の統一
+        if "テンペスト" in area_short:
+            area_disp = "オイジュス"
+        elif "東ザナラーン" in area_short:
+            area_disp = "パエンナ"
+        elif "ウルティマ・トゥーレ" in area_short:
+            area_disp = "焦がれの入り江"
+        else:
+            area_disp = area_short
+
         for row in mdata['schedule']:
             time_str = row['time'].replace('ET ', '')
             time_parts = time_str.split('～')
@@ -553,34 +609,107 @@ def generate_html(forecast_data):
                     
                     if is_gatherer or is_crafter:
                         if "EX+" in mission_name:
-                            if is_gatherer:
-                                active_ex_gatherer.append(f"{area_short} ({mission_name})")
+                            # ジョブ特化型のEV計算
+                            cosmo, local, manuals, chips = 0, 0, 0, 0
+                            cert_pr = 0
+                            
+                            # エリア判定（元の文字列で判定）
+                            if "パエンナ" in area:
+                                cert_pr = cert_paenna_price
+                                if is_crafter:
+                                    cosmo, local, manuals, chips = 75, 50, 180, 0
+                                else:
+                                    cosmo, local, manuals, chips = 75, 50, 75, 0
+                            elif "オイジュス" in area:
+                                cert_pr = cert_oizys_price
+                                if is_crafter:
+                                    # クラフターの天候EX+の最大値を採用（234チップ、215手形）
+                                    cosmo, local, manuals, chips = 65, 43, 215, 234
+                                elif "漁師" in mission_name:
+                                    cosmo, local, manuals, chips = 26, 17, 85, 107
+                                else:
+                                    # 採掘園芸
+                                    cosmo, local, manuals, chips = 25, 17, 85, 108
+                            elif "ウルティマ・トゥーレ" in area:
+                                cert_pr = 0  # 証書なし
+                                if is_crafter:
+                                    cosmo, local, manuals, chips = 65, 43, 0, 0
+                                elif "漁師" in mission_name:
+                                    cosmo, local, manuals, chips = 26, 17, 0, 0
+                                else:
+                                    cosmo, local, manuals, chips = 25, 17, 0, 0
+
+                            ev_credits = (cosmo + local * AREA_TO_COSMO_RATIO) * max_efficiency
+                            ev_manuals = (manuals / 100.0) * cert_pr
+                            ev_chips = (chips / 200.0) * pack_price
+                            total_ev = ev_credits + ev_manuals + ev_chips
+                            breakdown_str = f"クレ: {int(ev_credits):,} / 証書: {int(ev_manuals):,} / パック: {int(ev_chips):,}"
+                            
+                            short_job = mission_name.replace('EX+: ', '')
+                            
+                            if is_crafter:
+                                if area_disp not in active_ex_crafter_areas:
+                                    active_ex_crafter_areas[area_disp] = {'jobs': [], 'ev': total_ev, 'breakdown': breakdown_str}
+                                if short_job not in active_ex_crafter_areas[area_disp]['jobs']:
+                                    active_ex_crafter_areas[area_disp]['jobs'].append(short_job)
+                                if total_ev > active_ex_crafter_areas[area_disp]['ev']:
+                                    active_ex_crafter_areas[area_disp]['ev'] = total_ev
+                                    active_ex_crafter_areas[area_disp]['breakdown'] = breakdown_str
                             else:
-                                active_ex_crafter.append(f"{area_short} ({mission_name})")
+                                if area_disp not in active_ex_gatherer_areas:
+                                    active_ex_gatherer_areas[area_disp] = {'jobs': [], 'ev': total_ev, 'breakdown': breakdown_str}
+                                if short_job not in active_ex_gatherer_areas[area_disp]['jobs']:
+                                    active_ex_gatherer_areas[area_disp]['jobs'].append(short_job)
+                                if total_ev > active_ex_gatherer_areas[area_disp]['ev']:
+                                    active_ex_gatherer_areas[area_disp]['ev'] = total_ev
+                                    active_ex_gatherer_areas[area_disp]['breakdown'] = breakdown_str
+
                         elif "A" in mission_name:
                             if is_gatherer:
-                                active_a_gatherer.append(f"{area_short} ({mission_name})")
+                                active_a_gatherer.append(f"{area_disp} ({mission_name})")
                             else:
-                                active_a_crafter.append(f"{area_short} ({mission_name})")
+                                active_a_crafter.append(f"{area_disp} ({mission_name})")
+
+    # 妥協案（通常EX）の計算
+    fallback_crafter_ev = ((22 + 13 * AREA_TO_COSMO_RATIO) * max_efficiency) + ((57 / 200.0) * pack_price)
+    fallback_crafter_breakdown = f"クレ: {int((22 + 13 * AREA_TO_COSMO_RATIO) * max_efficiency):,} / 証書: 0 / パック: {int((57 / 200.0) * pack_price):,}"
+
+    fallback_gatherer_ev = ((18 + 11 * AREA_TO_COSMO_RATIO) * max_efficiency) + ((49 / 200.0) * pack_price)
+    fallback_gatherer_breakdown = f"クレ: {int((18 + 11 * AREA_TO_COSMO_RATIO) * max_efficiency):,} / 証書: 0 / パック: {int((49 / 200.0) * pack_price):,}"
 
     # クラフター向け提案
     recommend_html += "<li style='margin-top: 15px;'><strong style='color: #e2f1f8;'>【クラフター (革・彫・錬)】金策タスク:</strong><br>"
-    if active_ex_crafter:
-        recommend_html += f"<span style='color: #f7ce55;'>EX+発生中:</span> <span style='color: #8da1b5; font-size: 13px;'>{', '.join(active_ex_crafter)}</span><br><span style='font-size: 11px; color: #f7ce55;'>(※1回あたり約50コスモクレジット獲得想定 → 実質約 {gil_ex} gil 相当)</span>"
+    if active_ex_crafter_areas:
+        job_disps = [f"{a} (EX+: {', '.join(d['jobs'])})" for a, d in active_ex_crafter_areas.items()]
+        recommend_html += f"<span style='color: #f7ce55;'>EX+発生中:</span> <span style='color: #8da1b5; font-size: 13px;'>{', '.join(job_disps)}</span><br>"
+        for a, d in active_ex_crafter_areas.items():
+            recommend_html += f"<span style='font-size: 11px; color: #f7ce55;'>(※1回あたり クラフター({a}) 最大報酬想定 → 実質約 <strong>{int(d['ev']):,} gil</strong> 相当)</span><br>"
+            recommend_html += f"<span style='font-size: 10px; color: #8da1b5; margin-left: 15px;'>[内訳] {d['breakdown']}</span><br>"
     elif active_a_crafter:
         recommend_html += f"<span style='color: #4ed8d1;'>Aランク発生中:</span> <span style='color: #8da1b5; font-size: 13px;'>{', '.join(active_a_crafter)}</span>"
     else:
-        recommend_html += "<span style='color: #5a6e7c; font-size: 13px;'>現在高ランクの時限ミッションはありません。</span>"
+        recommend_html += "<span style='color: #5a6e7c; font-size: 13px;'>現在高ランクの時限ミッションはありません。</span><br>"
+        recommend_html += f"<span style='color: #8da1b5; font-size: 13px; margin-top: 4px; display: inline-block;'>💡妥協案 (いつでも可能): <strong>オイジュス 通常EXミッション</strong></span><br>"
+        recommend_html += f"<span style='font-size: 11px; color: #8da1b5;'>(※1回あたり クラフター(通常EX) 報酬想定 → 実質約 <strong>{int(fallback_crafter_ev):,} gil</strong> 相当)</span><br>"
+        recommend_html += f"<span style='font-size: 10px; color: #8da1b5; margin-left: 15px;'>[内訳] {fallback_crafter_breakdown}</span>"
     recommend_html += "</li>"
 
     # ギャザラー向け提案
     recommend_html += "<li style='margin-top: 10px;'><strong style='color: #e2f1f8;'>【ギャザラー (採・園・漁)】金策タスク:</strong><br>"
-    if active_ex_gatherer:
-        recommend_html += f"<span style='color: #f7ce55;'>EX+発生中:</span> <span style='color: #8da1b5; font-size: 13px;'>{', '.join(active_ex_gatherer)}</span><br><span style='font-size: 11px; color: #f7ce55;'>(※1回あたり約50コスモクレジット獲得想定 → 実質約 {gil_ex} gil 相当)</span>"
+    if active_ex_gatherer_areas:
+        job_disps = [f"{a} (EX+: {', '.join(d['jobs'])})" for a, d in active_ex_gatherer_areas.items()]
+        recommend_html += f"<span style='color: #f7ce55;'>EX+発生中:</span> <span style='color: #8da1b5; font-size: 13px;'>{', '.join(job_disps)}</span><br>"
+        for a, d in active_ex_gatherer_areas.items():
+            recommend_html += f"<span style='font-size: 11px; color: #f7ce55;'>(※1回あたり ギャザラー({a}) 最大報酬想定 → 実質約 <strong>{int(d['ev']):,} gil</strong> 相当)</span><br>"
+            recommend_html += f"<span style='font-size: 10px; color: #8da1b5; margin-left: 15px;'>[内訳] {d['breakdown']}</span><br>"
     elif active_a_gatherer:
         recommend_html += f"<span style='color: #4ed8d1;'>Aランク発生中:</span> <span style='color: #8da1b5; font-size: 13px;'>{', '.join(active_a_gatherer)}</span>"
     else:
-        recommend_html += "<span style='color: #5a6e7c; font-size: 13px;'>現在高ランクの時限ミッションはありません。</span>"
+        recommend_html += "<span style='color: #5a6e7c; font-size: 13px;'>現在高ランクの時限ミッションはありません。</span><br>"
+        recommend_html += f"<span style='color: #8da1b5; font-size: 13px; margin-top: 4px; display: inline-block;'>💡妥協案 (いつでも可能): <strong>オイジュス 通常EXミッション</strong></span><br>"
+        recommend_html += f"<span style='font-size: 11px; color: #8da1b5;'>(※1回あたり ギャザラー(通常EX) 報酬想定 → 実質約 <strong>{int(fallback_gatherer_ev):,} gil</strong> 相当)</span><br>"
+        recommend_html += f"<span style='font-size: 10px; color: #8da1b5; margin-left: 15px;'>[内訳] {fallback_gatherer_breakdown}</span>"
+    recommend_html += "</li>"
     # --- オイジュス・エネルギーパックの比較ロジック ---
     pack_data = prices.get(50414, {})
     pack_price_str = pack_data.get('price', '---')
@@ -597,14 +726,20 @@ def generate_html(forecast_data):
         
         # 期待値計算 (5%で当選枠を引き、その中でさらに各確率で抽選される二段構え)
         # 画像統計に基づき、地団駄 6.89% / フェイス鍵 6.21% で計算
-        ev = 0.05 * ( (jidan_price * 0.0689) + (face_price * 0.0621) )
+        base_ev = 0.05 * ( (jidan_price * 0.0689) + (face_price * 0.0621) )
+        
+        # 鑑定にかかる1分の拘束時間コスト（ダッシュボード最高効率アイテムのレートと連動）
+        # 1分間あたり約500コスモクレジット相当の労働（機会損失）と定義して算出
+        TIME_COST_1MIN = 500 * max_efficiency 
+        ev = base_ev - TIME_COST_1MIN
+        
         diff = ev - pack_price
         
         advice = ""
         if diff > 0:
-            advice = f"<span style='color: #f7ce55; font-weight: bold;'>【開封推奨】</span> 期待値が売却額を <strong>{int(diff):,} gil</strong> 上回っています。使って夢を見ましょう！"
+            advice = f"<span style='color: #f7ce55; font-weight: bold;'>【開封推奨】</span> 実質期待値が売却額を <strong>{int(diff):,} gil</strong> 上回っています。使って夢を見ましょう！"
         else:
-            advice = f"<span style='color: #4ed8d1; font-weight: bold;'>【売却推奨】</span> 期待値が売却額を <strong>{int(abs(diff)):,} gil</strong> 下回っています。そのまま売るのが堅実です。"
+            advice = f"<span style='color: #4ed8d1; font-weight: bold;'>【売却推奨】</span> 鑑定の1分間拘束コストを考慮すると、そのまま売る方が <strong>{int(abs(diff)):,} gil</strong> お得です。"
             
         analysis_html = f"""
         <li style='margin-top: 15px; list-style-type: none; margin-left: -20px;'>
@@ -612,7 +747,7 @@ def generate_html(forecast_data):
                 <strong style='color: #e2f1f8;'>📦 オイジュス・エネルギーパック鑑定:</strong><br>
                 <div style='font-size: 13px; margin: 5px 0;'>
                     現物売却: <span style='color: #f7ce55;'>{pack_price_str} gil</span><br>
-                    開封期待値: <span style='color: #f7ce55;'>{int(ev):,} gil</span> (5%当選枠内 → 各種抽選)
+                    開封期待値: <span style='color: #8da1b5; text-decoration: line-through;'>{int(base_ev):,} gil</span> → <span style='color: #f7ce55; font-weight: bold;'>{int(ev):,} gil</span> <span style='font-size: 11px; color:#8da1b5;'>(※鑑定1分の拘束コスト: 現在の相場換算で -{int(TIME_COST_1MIN):,}gilを考慮)</span>
                 </div>
                 <div style='font-size: 12px;'>{advice}</div>
             </div>
@@ -700,27 +835,46 @@ def generate_html(forecast_data):
 
 class WeatherRequestHandler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
-        if self.path == '/':
-            self.send_response(200)
-            self.send_header("Content-type", "text/html; charset=utf-8")
-            self.end_headers()
-            
-            # アクセスされるたびに最新の天気を計算してHTMLを返す
-            forecasts = generate_forecast()
-            html_content = generate_html(forecasts)
-            
-            self.wfile.write(html_content.encode('utf-8'))
-        elif self.path == '/static/style.css':
-            # CSSファイルを読み込んで返す
-            self.send_response(200)
-            self.send_header("Content-type", "text/css")
-            self.end_headers()
-            with open('static/style.css', 'rb') as f:
-                self.wfile.write(f.read())
-        else:
-            super().do_GET()
+        try:
+            if self.path == '/':
+                # 1. コンテンツを生成 (エラーが出れば例外処理へ)
+                forecasts = generate_forecast()
+                html_content = generate_html(forecasts)
+                body = html_content.encode('utf-8')
+                
+                # 2. 正常終了した場合のみヘッダーを送信
+                self.send_response(200)
+                self.send_header("Content-type", "text/html; charset=utf-8")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+                
+            elif self.path == '/static/style.css':
+                if os.path.exists('static/style.css'):
+                    with open('static/style.css', 'rb') as f:
+                        body = f.read()
+                    self.send_response(200)
+                    self.send_header("Content-type", "text/css")
+                    self.send_header("Content-Length", str(len(body)))
+                    self.end_headers()
+                    self.wfile.write(body)
+                else:
+                    self.send_error(404, "File Not Found")
+            else:
+                super().do_GET()
+                
+        except Exception as e:
+            # 詳細なエラー情報をコンソールに出力
+            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] !!! Server Error !!!: {e}")
+            import traceback
+            traceback.print_exc()
+            # 既にヘッダーを送っていない場合のみ、500エラーを送信
+            try:
+                self.send_error(500, f"Internal Server Error: {e}")
+            except:
+                pass
 
-if __name__ == "__main__":
+def run_server():
     with socketserver.TCPServer(("", PORT), WeatherRequestHandler) as httpd:
         print(f"✅ サーバーを起動しました。ブラウザで http://localhost:{PORT} にアクセスしてください。")
         print("💡 終了するには Ctrl+C を押してください。")
@@ -730,3 +884,11 @@ if __name__ == "__main__":
             pass
         httpd.server_close()
         print("サーバーを停止しました。")
+
+if __name__ == "__main__":
+    # バックグラウンド更新スレッドの開始
+    bg_thread = threading.Thread(target=market_price_worker, daemon=True)
+    bg_thread.start()
+    
+    # サーバーの起動
+    run_server()

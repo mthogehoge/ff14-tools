@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FFXIV Tools Portal</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Noto+Sans+JP:wght@400;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+    <div class="floating-element fe-1"></div>
+    <div class="floating-element fe-2"></div>
+
+    <header>
+        <h1>FFXIV ツールポータル</h1>
+        <p class="subtitle">Personal Dashboard & Utilities Station</p>
+    </header>
+
+    <main>
+        <!-- Cosmo Explorer Dashboard -->
+        <a href="http://localhost:8000" class="card" target="_blank">
+            <div class="card-icon">🚀</div>
+            <div class="card-title">
+                コスモ・ダッシュボード
+                <span class="badge">稼働中</span>
+            </div>
+            <p class="card-desc">
+                オイジュス・パエンナ等の特注品EX+天候スケジュールや、リアルタイムのコスモクレジット金策期待値（メカオペ・アイテム相場）を自動計算して提示するリアルタイムダッシュボードです。<br><br>
+                ※事前に <code>python cosmo_dashboard/weather_fetcher.py</code> を起動しておく必要があります。
+            </p>
+            <div class="card-footer">
+                Port: 8000 <span>Launch &rarr;</span>
+            </div>
+        </a>
+
+        <!-- Universalis Scraper -->
+        <a href="../universalis_tools/universalis_ids_final.json" class="card" target="_blank">
+            <div class="card-icon">📚</div>
+            <div class="card-title">
+                アイテムID辞書
+                <span class="badge"
+                    style="color:#4ed8d1; border-color:#4ed8d1; background:rgba(78,216,209,0.1)">静的データ</span>
+            </div>
+            <p class="card-desc">
+                UniversalisおよびTeamcraftデータを利用して高速に抽出・生成されたアイテムID（1017件）のローカルJSONデータベースにアクセスします。<br><br>
+                ゲーム内データ分析用のベースとして利用可能です。
+            </p>
+            <div class="card-footer" style="color:#4ed8d1;">
+                View JSON <span>View &rarr;</span>
+            </div>
+        </a>
+
+        <!-- Crafted Gear Tracker -->
+        <a href="../crafted_gear_tracker/index.html" class="card" target="_blank">
+            <div class="card-icon">💎</div>
+            <div class="card-title">
+                新式装備（コートリーラヴァー）相場
+                <span class="badge"
+                    style="color:#f7ce55; border-color:#f7ce55; background:rgba(247,206,85,0.1)">Universalis連携</span>
+            </div>
+            <p class="card-desc">
+                最新の新式装備「コートリーラヴァー」シリーズ全84アイテムの現在のマーケットボード最安値（Mana）を一覧表示します。<br><br>
+                ※生成スクリプト（<code>generate_crafted_gear.py</code>）を実行した時点の価格です。
+            </p>
+            <div class="card-footer" style="color:#f7ce55;">
+                View Prices <span>View &rarr;</span>
+            </div>
+        </a>
+
+        <!-- Placeholder for future tools -->
+        <a href="#" class="card" style="opacity: 0.6; cursor: default;" id="coming-soon-link">
+            <div class="card-icon">🔨</div>
+            <div class="card-title">
+                新規ツール（追加予定）
+            </div>
+            <p class="card-desc">
+                今後作成される生産マクロ支援ツールや、ギャザラーアラーム、リテイナー管理情報などがここに追加される予定です。
+            </p>
+            <div class="card-footer" style="color:var(--text-muted)">
+                Coming Soon... <span></span>
+            </div>
+        </a>
+    </main>
+    <script src="js/script.js"></script>
+</body>
+
+</html>
