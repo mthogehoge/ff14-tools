@@ -33,19 +33,15 @@ FF14での各種コンテンツにおける効率的なプレイと金策をサ�
 ### 実行手順
 1. 本リポジトリを適当なフォルダにダウンロード（クローン）します。
 2. ターミナル（Powershellやコマンドプロンプト）を開きます。
-3. **ダッシュボードを起動する場合**
+3. **サーバー機能群の起動**
    ```bash
    cd cosmo_dashboard
    python weather_fetcher.py
    ```
-   → ブラウザで `http://localhost:8000` にアクセスします。
    
-4. **新式相場表を最新データに更新する場合**
-   ```bash
-   cd crafted_gear_tracker
-   python generate_crafted_gear.py
-   ```
-   → 処理完了後、`portal/index.html` または `crafted_gear_tracker/index.html` をブラウザで直接開いて確認します。
+4. **ブラウザでのアクセス**
+   - **ダッシュボード画面**: `http://localhost:8000`
+   - **新式相場表（リアルタイム生成）**: トップページのリンクから、または直接 `http://localhost:8000/craft` にアクセスします。
 
 ---
 
