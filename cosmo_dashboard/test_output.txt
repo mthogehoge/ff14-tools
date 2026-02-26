@@ -1,0 +1,1260 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- 60秒ごとに自動リフレッシュして常に最新の天気を取得 -->
+    <meta http-equiv="refresh" content="60">
+    <title>FF14天候EX+予報 - コスモエクスプローラー</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+    <div class="box-container">
+        <!-- ナビゲーションバー -->
+        <div
+            style="background: rgba(30, 42, 56, 0.8); border: 1px solid rgba(78, 216, 209, 0.3); border-radius: 8px; padding: 15px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center;">
+            <div style="color: #4ed8d1; font-weight: bold; font-size: 1.1em;">🚀 コスモエクスプローラー・ダッシュボード</div>
+            <a href="/craft"
+                style="color: #f7ce55; text-decoration: none; font-weight: bold; border: 1px solid #f7ce55; padding: 5px 15px; border-radius: 4px; transition: all 0.2s;"
+                onmouseover="this.style.background='rgba(247,206,85,0.1)'"
+                onmouseout="this.style.background='transparent'">
+                💎 新式相場表を見る &rarr;
+            </a>
+        </div>
+        <!-- おすすめタスクエリア -->
+        <p
+            style="margin-top: 5px; border-top: 1px dotted #1a2a32; padding-top: 20px; font-size: 13px; color: #4ed8d1; font-weight: bold; margin-bottom: 10px;">
+            <span class="neon-dot">●</span> 今最も優先すべきタスク
+        </p>
+        <div class="recommendation-area"
+            style="background: #162432; border: 1px solid #23374b; border-radius: 8px; padding: 15px; margin-bottom: 25px;">
+            <ul style='color: #e2f1f8; font-size: 14px; line-height: 1.6; padding-left: 20px; margin: 0;'><li style='margin-bottom: 15px; list-style-type: none; margin-left: -20px;'><div style='background: rgba(247, 206, 85, 0.1); border: 1px solid rgba(247, 206, 85, 0.3); padding: 10px; border-radius: 6px;'><span style='color: #f7ce55; font-weight: bold;'>💰 現在の最高金策アイテム:</span> <strong>エラー:相場取得不可 (25gil換算)</strong> (1コスモクレジットあたり約 <span style='color: #f7ce55;'>25.0 gil</span> / <span style='color: #f7ce55;'>売れ行き低め</span>)<br><span style='font-size: 11px; color: #8da1b5; display: inline-block; margin-top: 5px; line-height: 1.4;'>※価格だけでなく、直近50件の取引履歴から「1日あたりの平均販売数(速)」を算出し、スコア化して選出しています。<br>1日に1個以上売れているアイテムは健全とし、それ未満のものは売れないリスクがあるとして評価を下げ、『実際にギルにしやすく価格も高い』アイテムを優先して表示します。</span></div></li><li><span style='color: #4ed8d1; font-weight: bold;'>【準備】</span>次のメカオペは LT毎時36分 (9分後) です。メカオペ参加費の「パエンナクレジット」または「オイジュスクレジット」を優先して1000個集めましょう。<br><span style='font-size: 12px; color: #4ed8d1;'>(※参加で1800コスモクレジット獲得 → 実質約 45,000 gil 相当)</span></li><li style='margin-top: 15px;'><strong style='color: #e2f1f8;'>【クラフター (革・彫・錬)】金策タスク:</strong><br><span style='color: #4ed8d1;'>Aランク発生中:</span> <span style='color: #8da1b5; font-size: 13px;'>オイジュス (A: 錬金術師)</span><br><span style='font-size: 11px; color: #4ed8d1;'>(※1回あたり クラフター(オイジュス) Aランク報酬想定 → 実質約 <strong>7,095 gil</strong> 相当)</span><br><span style='font-size: 10px; color: #8da1b5; margin-left: 15px;'>[内訳] クレ: 3,495 / 証書: 0 / パック: 3,600</span><br></li><li style='margin-top: 10px;'><strong style='color: #e2f1f8;'>【ギャザラー (採・園・漁)】金策タスク:</strong><br><span style='color: #f7ce55;'>EX+発生中:</span> <span style='color: #8da1b5; font-size: 13px;'>オイジュス (EX+: 園芸師), パエンナ (EX+: 園芸師)</span><br><span style='font-size: 11px; color: #f7ce55;'>(※1回あたり ギャザラー(オイジュス) 最大報酬想定 → 実質約 <strong>179,490 gil</strong> 相当)</span><br><span style='font-size: 10px; color: #8da1b5; margin-left: 15px;'>[内訳] クレ: 1,390 / 証書: 170,000 / パック: 8,100</span><br><span style='font-size: 11px; color: #f7ce55;'>(※1回あたり ギャザラー(パエンナ) 最大報酬想定 → 実質約 <strong>79,125 gil</strong> 相当)</span><br><span style='font-size: 10px; color: #8da1b5; margin-left: 15px;'>[内訳] クレ: 4,125 / 証書: 75,000 / パック: 0</span><br></li></ul>
+        </div>
+
+        <!-- 天気確認エリア -->
+        <h2 class="main-title"><span class="neon-dot">●</span> 今後6時間（LT）の天候EX+タイミング</h2>
+
+        <div class="grid-container">
+            
+            <div class="grid-item">
+                <h3 class="zone-title">テンペスト（オイジュス）</h3>
+                <div class="condition-box">
+                    <span class="icon">⚡</span> 天候EX+発生条件: <span class="white-text" style="margin-left:4px;">快晴 / 曇り</span>
+                </div>
+                <div class="result-list">
+                    <div class="result-item"><span class="result-time">ET 00:00 (LT 10:10)</span> <span class="weather-badge">晴れ</span></div>
+                    <div class="result-item"><span class="result-time">ET 08:00 (LT 10:33)</span> <span class="weather-badge">晴れ</span></div>
+                    <div class="result-item"><span class="result-time">ET 16:00 (LT 10:56)</span> <span class="weather-badge">晴れ</span></div>
+                    <div class="result-item"><span class="result-time">ET 00:00 (LT 11:20)</span> <span class="weather-badge">快晴</span></div>
+                    <div class="result-item"><span class="result-time">ET 08:00 (LT 11:43)</span> <span class="weather-badge">晴れ</span></div>
+                    <div class="result-item"><span class="result-time">ET 16:00 (LT 12:06)</span> <span class="weather-badge">晴れ</span></div>
+                    <div class="result-item"><span class="result-time">ET 00:00 (LT 12:30)</span> <span class="weather-badge">曇り</span></div>
+                    <div class="result-item"><span class="result-time">ET 08:00 (LT 12:53)</span> <span class="weather-badge">晴れ</span></div>
+                    <div class="result-item"><span class="result-time">ET 16:00 (LT 13:16)</span> <span class="weather-badge">曇り</span></div>
+                    <div class="result-item"><span class="result-time">ET 00:00 (LT 13:40)</span> <span class="weather-badge">晴れ</span></div>
+                    <div class="result-item"><span class="result-time">ET 08:00 (LT 14:03)</span> <span class="weather-badge">曇り</span></div>
+                    <div class="result-item"><span class="result-time">ET 16:00 (LT 14:26)</span> <span class="weather-badge">晴れ</span></div>
+                    <div class="result-item"><span class="result-time">ET 00:00 (LT 14:50)</span> <span class="weather-badge">晴れ</span></div>
+                    <div class="result-item"><span class="result-time">ET 08:00 (LT 15:13)</span> <span class="weather-badge">曇り</span></div>
+                    <div class="result-item"><span class="result-time">ET 16:00 (LT 15:36)</span> <span class="weather-badge">曇り</span></div>
+                    <div class="result-item"><span class="result-time">ET 00:00 (LT 16:00)</span> <span class="weather-badge">快晴</span></div>
+                    <div class="result-item"><span class="result-time">ET 08:00 (LT 16:23)</span> <span class="weather-badge">晴れ</span></div>
+                </div>
+            </div>
+
+            <div class="grid-item">
+                <h3 class="zone-title">東ザナラーン（パエンナ）</h3>
+                <div class="condition-box">
+                    <span class="icon">⚡</span> 天候EX+発生条件: <span class="white-text" style="margin-left:4px;">雨 / 曇り</span>
+                </div>
+                <div class="result-list">
+                    <div class="result-item"><span class="result-time">ET 00:00 (LT 10:10)</span> <span class="weather-badge">霧</span></div>
+                    <div class="result-item"><span class="result-time">ET 08:00 (LT 10:33)</span> <span class="weather-badge">晴れ</span></div>
+                    <div class="result-item"><span class="result-time">ET 16:00 (LT 10:56)</span> <span class="weather-badge">快晴</span></div>
+                    <div class="result-item"><span class="result-time">ET 00:00 (LT 11:20)</span> <span class="weather-badge">雨</span></div>
+                    <div class="result-item"><span class="result-time">ET 08:00 (LT 11:43)</span> <span class="weather-badge">快晴</span></div>
+                    <div class="result-item"><span class="result-time">ET 16:00 (LT 12:06)</span> <span class="weather-badge">曇り</span></div>
+                    <div class="result-item"><span class="result-time">ET 00:00 (LT 12:30)</span> <span class="weather-badge">快晴</span></div>
+                    <div class="result-item"><span class="result-time">ET 08:00 (LT 12:53)</span> <span class="weather-badge">快晴</span></div>
+                    <div class="result-item"><span class="result-time">ET 16:00 (LT 13:16)</span> <span class="weather-badge">快晴</span></div>
+                    <div class="result-item"><span class="result-time">ET 00:00 (LT 13:40)</span> <span class="weather-badge">晴れ</span></div>
+                    <div class="result-item"><span class="result-time">ET 08:00 (LT 14:03)</span> <span class="weather-badge">快晴</span></div>
+                    <div class="result-item"><span class="result-time">ET 16:00 (LT 14:26)</span> <span class="weather-badge">快晴</span></div>
+                    <div class="result-item"><span class="result-time">ET 00:00 (LT 14:50)</span> <span class="weather-badge">晴れ</span></div>
+                    <div class="result-item"><span class="result-time">ET 08:00 (LT 15:13)</span> <span class="weather-badge">快晴</span></div>
+                    <div class="result-item"><span class="result-time">ET 16:00 (LT 15:36)</span> <span class="weather-badge">快晴</span></div>
+                    <div class="result-item"><span class="result-time">ET 00:00 (LT 16:00)</span> <span class="weather-badge">暴雨</span></div>
+                    <div class="result-item"><span class="result-time">ET 08:00 (LT 16:23)</span> <span class="weather-badge">快晴</span></div>
+                </div>
+            </div>
+
+            <div class="grid-item">
+                <h3 class="zone-title">ウルティマ・トゥーレ（焦がれの入り江）</h3>
+                <div class="condition-box">
+                    <span class="icon">⚡</span> 天候EX+発生条件: <span class="white-text" style="margin-left:4px;">雷霊風 / 月砂塵</span>
+                </div>
+                <div class="result-list">
+                    <div class="result-item"><span class="result-time">ET 00:00 (LT 10:10)</span> <span class="weather-badge">晴れ</span></div>
+                    <div class="result-item"><span class="result-time">ET 08:00 (LT 10:33)</span> <span class="weather-badge">晴れ</span></div>
+                    <div class="result-item"><span class="result-time">ET 16:00 (LT 10:56)</span> <span class="weather-badge">晴れ</span></div>
+                    <div class="result-item"><span class="result-time">ET 00:00 (LT 11:20)</span> <span class="weather-badge">晴れ</span></div>
+                    <div class="result-item"><span class="result-time">ET 08:00 (LT 11:43)</span> <span class="weather-badge">晴れ</span></div>
+                    <div class="result-item"><span class="result-time">ET 16:00 (LT 12:06)</span> <span class="weather-badge">晴れ</span></div>
+                    <div class="result-item"><span class="result-time">ET 00:00 (LT 12:30)</span> <span class="weather-badge">磁気嵐</span></div>
+                    <div class="result-item"><span class="result-time">ET 08:00 (LT 12:53)</span> <span class="weather-badge">晴れ</span></div>
+                    <div class="result-item"><span class="result-time">ET 16:00 (LT 13:16)</span> <span class="weather-badge">磁気嵐</span></div>
+                    <div class="result-item"><span class="result-time">ET 00:00 (LT 13:40)</span> <span class="weather-badge">晴れ</span></div>
+                    <div class="result-item"><span class="result-time">ET 08:00 (LT 14:03)</span> <span class="weather-badge">磁気嵐</span></div>
+                    <div class="result-item"><span class="result-time">ET 16:00 (LT 14:26)</span> <span class="weather-badge">晴れ</span></div>
+                    <div class="result-item"><span class="result-time">ET 00:00 (LT 14:50)</span> <span class="weather-badge">晴れ</span></div>
+                    <div class="result-item"><span class="result-time">ET 08:00 (LT 15:13)</span> <span class="weather-badge">磁気嵐</span></div>
+                    <div class="result-item"><span class="result-time">ET 16:00 (LT 15:36)</span> <span class="weather-badge">晴れ</span></div>
+                    <div class="result-item"><span class="result-time">ET 00:00 (LT 16:00)</span> <span class="weather-badge">霊風</span></div>
+                    <div class="result-item"><span class="result-time">ET 08:00 (LT 16:23)</span> <span class="weather-badge">晴れ</span></div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- リアルタイム・ミッションエリア -->
+        <div class="mission-area">
+            <h2 class="main-title"><span class="neon-dot">●</span> 各エリアのミッション状況</h2>
+            <div class="mission-grid">
+                                <div class="mission-column">
+                    <div class="mission-column-title">テンペスト（オイジュス）</div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 00:00～03:59</span>
+                        <span class="mission-name">EX+: 甲冑師</span>
+                    </div>
+                    <div class="mission-item mission-highlight">
+                        <span class="mission-time">ET 04:00～07:59 <span style='color:#f7ce55; font-size:10px;'>(NOW)</span></span>
+                        <span class="mission-name">EX+: 彫金師</span>
+                    </div>
+                    <div class="mission-item mission-highlight">
+                        <span class="mission-time">ET 04:00～07:59 <span style='color:#f7ce55; font-size:10px;'>(NOW)</span></span>
+                        <span class="mission-name">EX+: 漁師</span>
+                    </div>
+                    <div class="mission-item mission-highlight">
+                        <span class="mission-time">ET 04:00～07:59 <span style='color:#f7ce55; font-size:10px;'>(NOW)</span></span>
+                        <span class="mission-name">Aランク: 採掘師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 08:00～11:59</span>
+                        <span class="mission-name">EX+: 革細工師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 08:00～11:59</span>
+                        <span class="mission-name">EX+: 採掘師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 08:00～11:59</span>
+                        <span class="mission-name">Aランク: 鍛冶師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 12:00～15:59</span>
+                        <span class="mission-name">EX+: 裁縫師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 12:00～15:59</span>
+                        <span class="mission-name">EX+: 園芸師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 16:00～19:59</span>
+                        <span class="mission-name">EX+: 錬金術師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 20:00～23:59</span>
+                        <span class="mission-name">EX+: 調理師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 20:00～23:59</span>
+                        <span class="mission-name">EX+: 園芸師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 20:00～23:59</span>
+                        <span class="mission-name">Aランク: 錬金術師</span>
+                    </div>
+                </div>
+                <div class="mission-column">
+                    <div class="mission-column-title">東ザナラーン（パエンナ）</div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 00:00～01:59</span>
+                        <span class="mission-name">A1: 木工師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 00:00～01:59</span>
+                        <span class="mission-name">A1: 錬金術師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 00:00～03:59</span>
+                        <span class="mission-name">EX+: 甲冑師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 02:00～03:59</span>
+                        <span class="mission-name">A1: 採掘師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 04:00～05:59</span>
+                        <span class="mission-name">A1: 鍛冶師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 04:00～05:59</span>
+                        <span class="mission-name">A1: 調理師</span>
+                    </div>
+                    <div class="mission-item mission-highlight">
+                        <span class="mission-time">ET 04:00～07:59 <span style='color:#f7ce55; font-size:10px;'>(NOW)</span></span>
+                        <span class="mission-name">EX+: 彫金師</span>
+                    </div>
+                    <div class="mission-item mission-highlight">
+                        <span class="mission-time">ET 04:00～07:59 <span style='color:#f7ce55; font-size:10px;'>(NOW)</span></span>
+                        <span class="mission-name">EX+: 漁師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 08:00～09:59</span>
+                        <span class="mission-name">A1: 甲冑師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 08:00～09:59</span>
+                        <span class="mission-name">A1: 漁師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 08:00～11:59</span>
+                        <span class="mission-name">EX+: 革細工師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 10:00～11:59</span>
+                        <span class="mission-name">A1: 園芸師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 12:00～13:59</span>
+                        <span class="mission-name">A1: 彫金師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 12:00～15:59</span>
+                        <span class="mission-name">EX+: 裁縫師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 12:00～15:59</span>
+                        <span class="mission-name">EX+: 採掘師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 16:00～17:59</span>
+                        <span class="mission-name">A1: 革細工師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 16:00～19:59</span>
+                        <span class="mission-name">EX+: 木工師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 16:00～19:59</span>
+                        <span class="mission-name">EX+: 錬金術師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 20:00～21:59</span>
+                        <span class="mission-name">A1: 裁縫師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 20:00～23:59</span>
+                        <span class="mission-name">EX+: 鍛冶師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 20:00～23:59</span>
+                        <span class="mission-name">EX+: 調理師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 20:00～23:59</span>
+                        <span class="mission-name">EX+: 園芸師</span>
+                    </div>
+                </div>
+                <div class="mission-column">
+                    <div class="mission-column-title">ウルティマ・トゥーレ（焦がれの入り江）</div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 00:00～01:59</span>
+                        <span class="mission-name">A1: 木工師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 00:00～01:59</span>
+                        <span class="mission-name">A1: 錬金術師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 00:00～01:59</span>
+                        <span class="mission-name">A3: 彫金師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 00:00～03:59</span>
+                        <span class="mission-name">EX+: 木工師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 00:00～03:59</span>
+                        <span class="mission-name">EX+: 漁師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 02:00～03:59</span>
+                        <span class="mission-name">A1: 採掘師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 04:00～05:59</span>
+                        <span class="mission-name">A1: 鍛冶師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 04:00～05:59</span>
+                        <span class="mission-name">A1: 調理師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 04:00～05:59</span>
+                        <span class="mission-name">A3: 革細工師</span>
+                    </div>
+                    <div class="mission-item mission-highlight">
+                        <span class="mission-time">ET 04:00～07:59 <span style='color:#f7ce55; font-size:10px;'>(NOW)</span></span>
+                        <span class="mission-name">EX+: 鍛冶師</span>
+                    </div>
+                    <div class="mission-item mission-highlight">
+                        <span class="mission-time">ET 04:00～07:59 <span style='color:#f7ce55; font-size:10px;'>(NOW)</span></span>
+                        <span class="mission-name">Aランク: 裁縫師</span>
+                    </div>
+                    <div class="mission-item mission-highlight">
+                        <span class="mission-time">ET 06:00～07:59 <span style='color:#f7ce55; font-size:10px;'>(NOW)</span></span>
+                        <span class="mission-name">A1: 漁師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 08:00～09:59</span>
+                        <span class="mission-name">A1: 甲冑師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 08:00～09:59</span>
+                        <span class="mission-name">A3: 裁縫師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 08:00～11:59</span>
+                        <span class="mission-name">EX+: 甲冑師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 08:00～11:59</span>
+                        <span class="mission-name">EX+: 採掘師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 10:00～11:59</span>
+                        <span class="mission-name">A1: 園芸師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 12:00～13:59</span>
+                        <span class="mission-name">A1: 彫金師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 12:00～13:59</span>
+                        <span class="mission-name">A3: 木工師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 12:00～13:59</span>
+                        <span class="mission-name">A3: 錬金術師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 12:00～15:59</span>
+                        <span class="mission-name">EX+: 彫金師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 12:00～15:59</span>
+                        <span class="mission-name">Aランク: 甲冑師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 14:00～15:59</span>
+                        <span class="mission-name">A3: 採掘師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 16:00～17:59</span>
+                        <span class="mission-name">A1: 革細工師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 16:00～17:59</span>
+                        <span class="mission-name">A3: 鍛冶師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 16:00～17:59</span>
+                        <span class="mission-name">A3: 調理師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 16:00～19:59</span>
+                        <span class="mission-name">EX+: 革細工師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 16:00～19:59</span>
+                        <span class="mission-name">EX+: 園芸師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 20:00～21:59</span>
+                        <span class="mission-name">A1: 裁縫師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 20:00～21:59</span>
+                        <span class="mission-name">A3: 甲冑師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 20:00～23:59</span>
+                        <span class="mission-name">EX+: 裁縫師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 20:00～23:59</span>
+                        <span class="mission-name">Aランク: 漁師</span>
+                    </div>
+                    <div class="mission-item">
+                        <span class="mission-time">ET 22:00～23:59</span>
+                        <span class="mission-name">A3: 園芸師</span>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- コスモクレジット・アイテム一覧エリア -->
+        <div class="credit-area">
+            <details>
+                <summary class="main-title"
+                    style="color: #4ed8d1; cursor: pointer; border: 1px solid #1a2a32; padding: 12px; border-radius: 6px; background: #0d1620;">
+                    <span class="neon-dot">●</span> コスモクレジット交換アイテム一覧 (クリックして展開)
+                </summary>
+                <div class="credit-grid">
+                    
+            <div class="credit-category">
+                <div class="credit-category-title">装備品</div>
+                <table class="credit-table">
+                    <tr>
+                        <th style="text-align: left; padding-bottom: 5px; color: #8da1b5; font-size: 10px;">アイテム名</th>
+                        <th style="text-align: right; padding-bottom: 5px; color: #8da1b5; font-size: 10px;">クレジット</th>
+                        <th style="text-align: right; padding-bottom: 5px; color: #3cb8f6; font-size: 10px;">最安値 (JP)</th>
+                        <th style="text-align: right; padding-bottom: 5px; color: #f7ce55; font-size: 10px;">単価(gil/コスモクレジット)</th>
+                    </tr>
+        
+                    <tr>
+                        <td class="item-name">コスモクルー・ジャケット</td>
+                        <td class="item-price">8,400 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">コスモクルー・グローブ</td>
+                        <td class="item-price">4,800 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">コスモクルー・トラウザー</td>
+                        <td class="item-price">7,200 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">コスモクルー・ブーツ</td>
+                        <td class="item-price">4,800 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">コスモキャプテン・ハット</td>
+                        <td class="item-price">4,800 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">コスモキャプテン・コート</td>
+                        <td class="item-price">8,400 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">コスモキャプテン・グローブ</td>
+                        <td class="item-price">4,800 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">コスモキャプテン・トラウザー</td>
+                        <td class="item-price">7,200 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">コスモキャプテン・ブーツ</td>
+                        <td class="item-price">4,800 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">コスモアドミラル・ヘルム</td>
+                        <td class="item-price">4,800 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">コスモアドミラル・コート</td>
+                        <td class="item-price">8,400 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">コスモアドミラル・グローブ</td>
+                        <td class="item-price">4,800 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">コスモアドミラル・トラウザー</td>
+                        <td class="item-price">7,200 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">コスモアドミラル・ブーツ</td>
+                        <td class="item-price">4,800 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+                            </table>
+            </div>
+            <div class="credit-category">
+                <div class="credit-category-title">マウント・譜面・その他</div>
+                <table class="credit-table">
+                    <tr>
+                        <th style="text-align: left; padding-bottom: 5px; color: #8da1b5; font-size: 10px;">アイテム名</th>
+                        <th style="text-align: right; padding-bottom: 5px; color: #8da1b5; font-size: 10px;">クレジット</th>
+                        <th style="text-align: right; padding-bottom: 5px; color: #3cb8f6; font-size: 10px;">最安値 (JP)</th>
+                        <th style="text-align: right; padding-bottom: 5px; color: #f7ce55; font-size: 10px;">単価(gil/コスモクレジット)</th>
+                    </tr>
+        
+                    <tr>
+                        <td class="item-name">スペースダルメル・ホイッスル</td>
+                        <td class="item-price">29,000 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">量産型パワーローダー認証鍵</td>
+                        <td class="item-price">20,000 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">レッドホイールローダー起動鍵</td>
+                        <td class="item-price">20,000 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">ポートレート教材:コスモエクスプローラー1</td>
+                        <td class="item-price">6,000 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">ポートレート教材:コスモエクスプローラー2</td>
+                        <td class="item-price">6,000 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">ポートレート教材:コスモエクスプローラー3</td>
+                        <td class="item-price">6,000 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">カード:パワーローダー</td>
+                        <td class="item-price">4,000 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">カード:ネミングウェイ</td>
+                        <td class="item-price">6,000 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">カード:スペースダルメル</td>
+                        <td class="item-price">4,000 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">演技教本:怒りに震える</td>
+                        <td class="item-price">9,600 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">スタイルカタログ:リーディンググラス</td>
+                        <td class="item-price">6,000 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">スタイルカタログ:レザードレスアイパッチ1</td>
+                        <td class="item-price">3,000 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">スタイルカタログ:レザードレスアイパッチ2</td>
+                        <td class="item-price">3,000 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">オーケストリオン譜:親方シド</td>
+                        <td class="item-price">6,000 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">オーケストリオン譜:飛空艇</td>
+                        <td class="item-price">6,000 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">オーケストリオン譜:パッションキャロット</td>
+                        <td class="item-price">6,000 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+                            </table>
+            </div>
+            <div class="credit-category">
+                <div class="credit-category-title">ハウジング</div>
+                <table class="credit-table">
+                    <tr>
+                        <th style="text-align: left; padding-bottom: 5px; color: #8da1b5; font-size: 10px;">アイテム名</th>
+                        <th style="text-align: right; padding-bottom: 5px; color: #8da1b5; font-size: 10px;">クレジット</th>
+                        <th style="text-align: right; padding-bottom: 5px; color: #3cb8f6; font-size: 10px;">最安値 (JP)</th>
+                        <th style="text-align: right; padding-bottom: 5px; color: #f7ce55; font-size: 10px;">単価(gil/コスモクレジット)</th>
+                    </tr>
+        
+                    <tr>
+                        <td class="item-name">コスモインナーウォール</td>
+                        <td class="item-price">4,000 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">コスモフローリング</td>
+                        <td class="item-price">4,000 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">コスモチェア</td>
+                        <td class="item-price">3,000 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">コスモランプポスト</td>
+                        <td class="item-price">3,000 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">コスモステーションルーフ</td>
+                        <td class="item-price">3,000 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">コスモラウンドベンチ</td>
+                        <td class="item-price">3,000 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">コスモガイドランプ</td>
+                        <td class="item-price">3,000 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">コスモアンテナ</td>
+                        <td class="item-price">3,000 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">コスモシェード</td>
+                        <td class="item-price">3,000 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+                            </table>
+            </div>
+            <div class="credit-category">
+                <div class="credit-category-title">消耗品</div>
+                <table class="credit-table">
+                    <tr>
+                        <th style="text-align: left; padding-bottom: 5px; color: #8da1b5; font-size: 10px;">アイテム名</th>
+                        <th style="text-align: right; padding-bottom: 5px; color: #8da1b5; font-size: 10px;">クレジット</th>
+                        <th style="text-align: right; padding-bottom: 5px; color: #3cb8f6; font-size: 10px;">最安値 (JP)</th>
+                        <th style="text-align: right; padding-bottom: 5px; color: #f7ce55; font-size: 10px;">単価(gil/コスモクレジット)</th>
+                    </tr>
+        
+                    <tr>
+                        <td class="item-name">ハイコーディアル</td>
+                        <td class="item-price">40 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">ケソ・フレスコ</td>
+                        <td class="item-price">30 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">ウールバックのロース肉</td>
+                        <td class="item-price">30 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">キャッサバ</td>
+                        <td class="item-price">30 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">最高級マテ茶葉</td>
+                        <td class="item-price">30 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">アヒ・アマリージョ</td>
+                        <td class="item-price">30 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">石匠の研磨剤</td>
+                        <td class="item-price">1,000 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">黄金の霊砂</td>
+                        <td class="item-price">200 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">幻岩の霊砂</td>
+                        <td class="item-price">400 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">幻葉の霊砂</td>
+                        <td class="item-price">400 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">幻海の霊砂</td>
+                        <td class="item-price">400 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">紫電の霊砂</td>
+                        <td class="item-price">600 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">高濃縮錬金薬</td>
+                        <td class="item-price">250 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">クラフターの製図用紙</td>
+                        <td class="item-price">30 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">転送網利用券:コスモエクスプローラー</td>
+                        <td class="item-price">60 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">アサリのむき身</td>
+                        <td class="item-price">10 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">ゴーストニッパー</td>
+                        <td class="item-price">10 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">紅サシ</td>
+                        <td class="item-price">10 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">トンボ</td>
+                        <td class="item-price">10 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">ホワイトワーム</td>
+                        <td class="item-price">10 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">ポッパールアー</td>
+                        <td class="item-price">100 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+                            </table>
+            </div>
+            <div class="credit-category">
+                <div class="credit-category-title">カララント</div>
+                <table class="credit-table">
+                    <tr>
+                        <th style="text-align: left; padding-bottom: 5px; color: #8da1b5; font-size: 10px;">アイテム名</th>
+                        <th style="text-align: right; padding-bottom: 5px; color: #8da1b5; font-size: 10px;">クレジット</th>
+                        <th style="text-align: right; padding-bottom: 5px; color: #3cb8f6; font-size: 10px;">最安値 (JP)</th>
+                        <th style="text-align: right; padding-bottom: 5px; color: #f7ce55; font-size: 10px;">単価(gil/コスモクレジット)</th>
+                    </tr>
+        
+                    <tr>
+                        <td class="item-name">カララント:ルビーレッド</td>
+                        <td class="item-price">600 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">カララント:チェリーピンク</td>
+                        <td class="item-price">600 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">カララント:カーマインレッド</td>
+                        <td class="item-price">600 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">カララント:ネオンピンク</td>
+                        <td class="item-price">600 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">カララント:ブライトオレンジ</td>
+                        <td class="item-price">600 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">カララント:カナリーイエロー</td>
+                        <td class="item-price">600 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">カララント:バニライエロー</td>
+                        <td class="item-price">600 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">カララント:ネオンイエロー</td>
+                        <td class="item-price">600 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">カララント:ネオングリーン</td>
+                        <td class="item-price">600 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">カララント:ドラグーンブルー</td>
+                        <td class="item-price">600 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">カララント:ターコイズブルー</td>
+                        <td class="item-price">600 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">カララント:アズールブルー</td>
+                        <td class="item-price">600 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">カララント:バイオレットパープル</td>
+                        <td class="item-price">600 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">カララント:ガンメタル</td>
+                        <td class="item-price">1,500 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">カララント:パールホワイト</td>
+                        <td class="item-price">1,500 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">カララント:シャインブラス</td>
+                        <td class="item-price">1,500 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+                            </table>
+            </div>
+            <div class="credit-category">
+                <div class="credit-category-title">マテリア</div>
+                <table class="credit-table">
+                    <tr>
+                        <th style="text-align: left; padding-bottom: 5px; color: #8da1b5; font-size: 10px;">アイテム名</th>
+                        <th style="text-align: right; padding-bottom: 5px; color: #8da1b5; font-size: 10px;">クレジット</th>
+                        <th style="text-align: right; padding-bottom: 5px; color: #3cb8f6; font-size: 10px;">最安値 (JP)</th>
+                        <th style="text-align: right; padding-bottom: 5px; color: #f7ce55; font-size: 10px;">単価(gil/コスモクレジット)</th>
+                    </tr>
+        
+                    <tr>
+                        <td class="item-name">達識のハイオメガマテリジャ</td>
+                        <td class="item-price">450 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">達識のハイアルテマテリジャ</td>
+                        <td class="item-price">900 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">博識のハイオメガマテリジャ</td>
+                        <td class="item-price">450 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">博識のハイアルテマテリジャ</td>
+                        <td class="item-price">900 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">器識のハイオメガマテリジャ</td>
+                        <td class="item-price">450 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">器識のハイアルテマテリジャ</td>
+                        <td class="item-price">900 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">名匠のハイオメガマテリジャ</td>
+                        <td class="item-price">450 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">名匠のハイアルテマテリジャ</td>
+                        <td class="item-price">900 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">魔匠のハイオメガマテリジャ</td>
+                        <td class="item-price">450 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">魔匠のハイアルテマテリジャ</td>
+                        <td class="item-price">900 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">巨匠のハイオメガマテリジャ</td>
+                        <td class="item-price">450 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="item-name">巨匠のハイアルテマテリジャ</td>
+                        <td class="item-price">900 <span class="credit-icon">コスモクレジット</span></td>
+                        <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:0.0)</span></td>
+                        <td class="item-price" style="color: #f7ce55;">---</td>
+                    </tr>
+                            </table>
+            </div>
+                </div>
+            </details>
+        </div>
+
+        <!-- レア/高額アイテム相場エリア -->
+        <div class="rare-items-area" style="margin-top: 15px;">
+            <details open>
+                <summary class="main-title"
+                    style="color: #f7ce55; cursor: pointer; border: 1px solid #1a2a32; padding: 12px; border-radius: 6px; background: #0d1620;">
+                    <span class="neon-dot" style="color: #f7ce55;">●</span> レア/高額アイテム相場 (JP最安値)
+                </summary>
+                <div class="rare-items-content" style="padding: 10px;">
+                    
+        <table class="credit-table">
+            <tr>
+                <th style="text-align: left; padding-bottom: 5px; color: #8da1b5; font-size: 10px;">アイテム名</th>
+                <th style="text-align: right; padding-bottom: 5px; color: #f7ce55; font-size: 10px;">最安値 (JP)</th>
+            </tr>
+    
+            <tr>
+                <td class="item-name" style="color: #e2f1f8;">惑星パエンナ探索計画の証書</td>
+                <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span></td>
+            </tr>
+        
+            <tr>
+                <td class="item-name" style="color: #e2f1f8;">惑星オイジュス探索計画の証書</td>
+                <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span></td>
+            </tr>
+        
+            <tr>
+                <td class="item-name" style="color: #e2f1f8;">オイジュス・エネルギーパック</td>
+                <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span></td>
+            </tr>
+        
+            <tr>
+                <td class="item-name" style="color: #e2f1f8;">コスモ・アームドウェポン認証鍵</td>
+                <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span></td>
+            </tr>
+        
+            <tr>
+                <td class="item-name" style="color: #e2f1f8;">コスモボード</td>
+                <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span></td>
+            </tr>
+        
+            <tr>
+                <td class="item-name" style="color: #e2f1f8;">演技教本:地団駄を踏む</td>
+                <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span></td>
+            </tr>
+        
+            <tr>
+                <td class="item-name" style="color: #e2f1f8;">コスモフェイス認証鍵</td>
+                <td class="item-price" style="color: #5a6e7c;">--- <span style="font-size:9px;">gil</span></td>
+            </tr>
+        </table>
+                </div>
+            </details>
+        </div>
+
+        <!-- クレジット獲得量目安エリア -->
+        <p
+            style="margin-top: 40px; border-top: 1px dotted #1a2a32; padding-top: 20px; font-size: 13px; color: #f7ce55; font-weight: bold; margin-bottom: 10px;">
+            <span class="neon-dot">●</span> クレジット獲得量目安
+        </p>
+        <div class="reward-area" style="border-top: none; padding-top: 0;">
+            <div class="reward-grid">
+                
+            <div class="reward-column">
+                <div class="reward-column-title">テンペスト（オイジュス）</div>
+                <table class="reward-table">
+                    <tr><th>ランク</th><th>コスモ</th><th>エリア</th></tr>
+        
+                    <tr>
+                        <td class="reward-rank">EX+</td>
+                        <td class="reward-val">49～65</td>
+                        <td class="reward-val">33～43</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="reward-rank">EX</td>
+                        <td class="reward-val">22</td>
+                        <td class="reward-val">13</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="reward-rank">A</td>
+                        <td class="reward-val">9～11</td>
+                        <td class="reward-val">7～9</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="reward-rank">B</td>
+                        <td class="reward-val">6～8</td>
+                        <td class="reward-val">8～11</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="reward-rank">C</td>
+                        <td class="reward-val">2</td>
+                        <td class="reward-val">4</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="reward-rank">D</td>
+                        <td class="reward-val">1</td>
+                        <td class="reward-val">3～4</td>
+                    </tr>
+                            </table>
+            </div>
+            <div class="reward-column">
+                <div class="reward-column-title">東ザナラーン（パエンナ）</div>
+                <table class="reward-table">
+                    <tr><th>ランク</th><th>コスモ</th><th>エリア</th></tr>
+        
+                    <tr>
+                        <td class="reward-rank">EX+</td>
+                        <td class="reward-val">53～98</td>
+                        <td class="reward-val">36～65</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="reward-rank">EX</td>
+                        <td class="reward-val">14～40</td>
+                        <td class="reward-val">9～24</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="reward-rank">A</td>
+                        <td class="reward-val">11～24</td>
+                        <td class="reward-val">9～20</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="reward-rank">B</td>
+                        <td class="reward-val">4～6</td>
+                        <td class="reward-val">6～8</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="reward-rank">C</td>
+                        <td class="reward-val">2～3</td>
+                        <td class="reward-val">3～6</td>
+                    </tr>
+            
+                    <tr>
+                        <td class="reward-rank">D</td>
+                        <td class="reward-val">1</td>
+                        <td class="reward-val">3～4</td>
+                    </tr>
+                            </table>
+            </div>
+            </div>
+        </div>
+
+
+    </div>
+
+    </div>
+</body>
+
+</html>

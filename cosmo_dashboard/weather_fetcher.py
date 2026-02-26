@@ -309,28 +309,35 @@ def market_price_worker():
                 url = f"https://universalis.app/api/v2/Japan/{item_ids_str}?listings=0&entries=1"
                 
                 req = urllib.request.Request(url, headers={'User-Agent': 'FF14_Dashboard/1.0'})
-                try:
-                    with urllib.request.urlopen(req, timeout=15) as response:
-                        data = json.loads(response.read().decode())
-                        
-                        items = data.get('items', {})
-                        if not items and 'itemID' in data:
-                            items = {str(data['itemID']): data}
-
-                        for iid_str, idata in items.items():
-                            price = idata.get('minPrice')
-                            n_price = idata.get('minPriceNQ')
-                            h_price = idata.get('minPriceHQ')
+                
+                max_retries = 3
+                for attempt in range(max_retries):
+                    try:
+                        with urllib.request.urlopen(req, timeout=15) as response:
+                            data = json.loads(response.read().decode())
                             
-                            final_price = price or n_price or h_price or 0
-                            velocity = idata.get('regularSaleVelocity', 0)
-                            
-                            new_cache[int(iid_str)] = {
-                                'price': f"{int(final_price):,}" if final_price > 0 else "---",
-                                'velocity': velocity
-                            }
-                except Exception as chunk_er:
-                    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Chunk fetch error for {item_ids_str}: {chunk_er}")
+                            items = data.get('items', {})
+                            if not items and 'itemID' in data:
+                                items = {str(data['itemID']): data}
+    
+                            for iid_str, idata in items.items():
+                                price = idata.get('minPrice')
+                                n_price = idata.get('minPriceNQ')
+                                h_price = idata.get('minPriceHQ')
+                                
+                                final_price = price or n_price or h_price or 0
+                                velocity = idata.get('regularSaleVelocity', 0)
+                                
+                                new_cache[int(iid_str)] = {
+                                    'price': f"{int(final_price):,}" if final_price > 0 else "---",
+                                    'velocity': velocity
+                                }
+                        break # Success
+                    except Exception as chunk_er:
+                        if attempt < max_retries - 1:
+                            time.sleep(2) # Retry delay
+                        else:
+                            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Chunk fetch error for {item_ids_str} after {max_retries} attempts: {chunk_er}")
                 
                 # APIへの負荷軽減のため少し待機
                 time.sleep(0.5)
@@ -540,7 +547,7 @@ def generate_html(forecast_data):
 
     # アクティブな高ランクミッションを探す
     active_ex_crafter = []
-    active_a_crafter = []
+    active_a_crafter = {}
     active_ex_crafter_areas = {}
     
     active_ex_gatherer = []
@@ -665,10 +672,38 @@ def generate_html(forecast_data):
                                     active_ex_gatherer_areas[area_disp]['breakdown'] = breakdown_str
 
                         elif "A" in mission_name:
-                            if is_gatherer:
-                                active_a_gatherer.append(f"{area_disp} ({mission_name})")
+                            if is_crafter and "オイジュス" in area_disp:
+                                # Aランクの報酬 (コスモ50, ローカル40, チップ42 -> 4ゴールドで +15% 増加 = 57, 46, 48)
+                                cosmo, local, manuals, chips = 57, 46, 0, 48 
+                                
+                                ev_credits = (cosmo + local * AREA_TO_COSMO_RATIO) * max_efficiency
+                                ev_chips = (chips / 200.0) * pack_price
+                                total_ev = ev_credits + ev_chips
+                                breakdown_str = f"クレ: {int(ev_credits):,} / 証書: 0 / パック: {int(ev_chips):,}"
+                                
+                                short_job = mission_name.replace('Aランク: ', '').replace('A1: ', '').replace('A3: ', '')
+                                
+                                # Use dictionary tracking for Crafter A-Ranks to enable Gil calculation readouts
+                                if 'areas' not in locals() or not isinstance(active_a_crafter, dict):
+                                    # Need to convert active_a_crafter to a dict in the main loop instead of an array.
+                                    pass
+                                
+                                if area_disp not in active_a_crafter:
+                                    active_a_crafter[area_disp] = {'jobs': [], 'ev': total_ev, 'breakdown': breakdown_str}
+                                if short_job not in active_a_crafter[area_disp]['jobs']:
+                                    active_a_crafter[area_disp]['jobs'].append(short_job)
+                                if total_ev > active_a_crafter[area_disp]['ev']:
+                                    active_a_crafter[area_disp]['ev'] = total_ev
+                                    active_a_crafter[area_disp]['breakdown'] = breakdown_str
                             else:
-                                active_a_crafter.append(f"{area_disp} ({mission_name})")
+                                if is_gatherer:
+                                    active_a_gatherer.append(f"{area_disp} ({mission_name})")
+                                else:
+                                    # For other areas or unknown A-rank data, fallback to old array formatting string
+                                    # Since active_a_crafter is now a dict, we will store it under 'Other'
+                                    if 'Other' not in active_a_crafter:
+                                        active_a_crafter['Other'] = {'jobs': [], 'ev': 0, 'breakdown': ''}
+                                    active_a_crafter['Other']['jobs'].append(f"{area_disp} ({mission_name})")
 
     # 妥協案（通常EX）の計算
     fallback_crafter_ev = ((22 + 13 * AREA_TO_COSMO_RATIO) * max_efficiency) + ((57 / 200.0) * pack_price)
@@ -686,7 +721,18 @@ def generate_html(forecast_data):
             recommend_html += f"<span style='font-size: 11px; color: #f7ce55;'>(※1回あたり クラフター({a}) 最大報酬想定 → 実質約 <strong>{int(d['ev']):,} gil</strong> 相当)</span><br>"
             recommend_html += f"<span style='font-size: 10px; color: #8da1b5; margin-left: 15px;'>[内訳] {d['breakdown']}</span><br>"
     elif active_a_crafter:
-        recommend_html += f"<span style='color: #4ed8d1;'>Aランク発生中:</span> <span style='color: #8da1b5; font-size: 13px;'>{', '.join(active_a_crafter)}</span>"
+        a_job_disps = []
+        for a, d in active_a_crafter.items():
+            if a == 'Other':
+                a_job_disps.extend(d['jobs'])
+            else:
+                a_job_disps.append(f"{a} (A: {', '.join(d['jobs'])})")
+                
+        recommend_html += f"<span style='color: #4ed8d1;'>Aランク発生中:</span> <span style='color: #8da1b5; font-size: 13px;'>{', '.join(a_job_disps)}</span><br>"
+        for a, d in active_a_crafter.items():
+            if a != 'Other' and d['ev'] > 0:
+                recommend_html += f"<span style='font-size: 11px; color: #4ed8d1;'>(※1回あたり クラフター({a}) Aランク報酬想定 → 実質約 <strong>{int(d['ev']):,} gil</strong> 相当)</span><br>"
+                recommend_html += f"<span style='font-size: 10px; color: #8da1b5; margin-left: 15px;'>[内訳] {d['breakdown']}</span><br>"
     else:
         recommend_html += "<span style='color: #5a6e7c; font-size: 13px;'>現在高ランクの時限ミッションはありません。</span><br>"
         recommend_html += f"<span style='color: #8da1b5; font-size: 13px; margin-top: 4px; display: inline-block;'>💡妥協案 (いつでも可能): <strong>オイジュス 通常EXミッション</strong></span><br>"
@@ -1324,6 +1370,34 @@ class WeatherRequestHandler(http.server.SimpleHTTPRequestHandler):
                     self.wfile.write(body)
                 else:
                     self.send_error(404, "File Not Found")
+            
+            # --- New Routing for portal/levequests/universalis_tools ---
+            elif self.path.startswith('/levequests/') or self.path.startswith('/portal/') or self.path.startswith('/universalis_tools/'):
+                import urllib.parse
+                clean_path = urllib.parse.unquote(self.path.split('?')[0]).lstrip('/')
+                
+                # cosmo_dashboard is the current directory, so the parent is ff14
+                base_dir = os.path.dirname(os.path.abspath(os.getcwd()))
+                target_file = os.path.abspath(os.path.join(base_dir, clean_path.replace('/', os.sep)))
+                
+                # Security check: ensure we don't serve files outside base_dir
+                if target_file.startswith(base_dir) and os.path.exists(target_file) and os.path.isfile(target_file):
+                    import mimetypes
+                    mime_type, _ = mimetypes.guess_type(target_file)
+                    if not mime_type:
+                        mime_type = "application/octet-stream"
+                    
+                    with open(target_file, 'rb') as f:
+                        body = f.read()
+                        
+                    self.send_response(200)
+                    self.send_header("Content-type", mime_type)
+                    self.send_header("Content-Length", str(len(body)))
+                    self.end_headers()
+                    self.wfile.write(body)
+                else:
+                    self.send_error(404, "File Not Found")
+            
             else:
                 super().do_GET()
                 
@@ -1349,10 +1423,339 @@ def run_server():
         httpd.server_close()
         print("サーバーを停止しました。")
 
+def gc_supply_price_worker():
+    """バックグラウンドでグラカン納品アイテムのマーケット価格を1日1回更新するスレッド"""
+    import urllib.parse
+    base_dir = os.path.dirname(os.path.abspath(os.getcwd()))
+    json_path = os.path.join(base_dir, 'levequests', 'gc-supply.json')
+    out_path = os.path.join(base_dir, 'levequests', 'gc_market_prices.json')
+    
+    # サーバー立ち上げ直後の安全マージン（他の起動処理を邪魔しないように）
+    time.sleep(20)
+    
+    while True:
+        try:
+            # 1. gc-supply.json から対象アイテムIDを取得
+            if not os.path.exists(json_path):
+                time.sleep(60)
+                continue
+                
+            # 2. gc_market_prices.json の更新日時をチェック（24時間以上経過しているか）
+            needs_update = True
+            if os.path.exists(out_path):
+                mtime = os.path.getmtime(out_path)
+                if (time.time() - mtime) < 86400: # 24時間以内の場合は不要
+                    needs_update = False
+                    
+            if not needs_update:
+                time.sleep(3600)
+                continue
+                
+            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Starting to fetch GC Supply HQ market & mats prices...")
+            
+            with open(json_path, 'r', encoding='utf-8') as f:
+                gc_data = json.load(f)
+                
+            gc_item_ids = set()
+            for level_data in gc_data.values():
+                for class_data in level_data.values():
+                    for item in class_data:
+                        gc_item_ids.add(item['itemId'])
+            
+            # 必要な素材の算出と、追加フェッチ対象のID抽出
+            mat_item_ids = set()
+            all_mats_required = {}
+            
+            for iid in gc_item_ids:
+                mats, _ = craft_fetcher.get_base_mats_and_crafts(iid)
+                all_mats_required[iid] = mats
+                for mid in mats.keys():
+                    mat_item_ids.add(mid)
+                    
+            all_target_ids = list(gc_item_ids | mat_item_ids)
+            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Combined GC API Targets: {len(all_target_ids)} items")
+            
+            # APIリクエスト (100件ずつチャンク分割)
+            raw_prices = {}
+            chunk_size = 100
+            for i in range(0, len(all_target_ids), chunk_size):
+                chunk = all_target_ids[i:i + chunk_size]
+                chunk_str = ",".join(map(str, chunk))
+                url = f"https://universalis.app/api/v2/Japan/{chunk_str}?listings=10&entries=0"
+                
+                req = urllib.request.Request(url, headers={'User-Agent': 'FF14_Dashboard/1.0'})
+                for retry in range(3): # 3回リトライ
+                    try:
+                        with urllib.request.urlopen(req, timeout=30) as response:
+                            data = json.loads(response.read().decode())
+                            
+                            items = data.get('items', {})
+                            if not items and 'itemID' in data:
+                                items = {str(data['itemID']): data}
+
+                            for iid_str, idata in items.items():
+                                listings = idata.get('listings', [])
+                                
+                                min_hq_price = 0
+                                min_price = 0
+                                hq_server = 'Japan' # Default server
+                                nq_server = 'Japan' # Default server
+                                
+                                if listings:
+                                    hq_listings = [l for l in listings if l.get('hq') == True]
+                                    if hq_listings:
+                                        # ソートして最安値を取得
+                                        hq_listings.sort(key=lambda x: x.get('pricePerUnit', 0))
+                                        min_hq_price = hq_listings[0].get('pricePerUnit', 0)
+                                        hq_server = hq_listings[0].get('worldName', 'Japan')
+                                        
+                                    all_listings = sorted(listings, key=lambda x: x.get('pricePerUnit', 0))
+                                    min_price = all_listings[0].get('pricePerUnit', 0)
+                                    nq_server = all_listings[0].get('worldName', 'Japan')
+                                    
+                                if min_hq_price == 0:
+                                    min_hq_price = idata.get('minPriceHQ', 0)
+                                if min_price == 0:
+                                    min_price = idata.get('minPrice', 0)
+                                    
+                                raw_prices[int(iid_str)] = {
+                                    "hq": min_hq_price,
+                                    "nq": min_price,
+                                    "hq_server": hq_server,
+                                    "nq_server": nq_server
+                                }
+                                    
+                        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Fetched GC prices [{min(i+len(chunk), len(all_target_ids))}/{len(all_target_ids)}]")
+                        break # Success, escape retry loop
+                    except Exception as chunk_er:
+                        if retry == 2:
+                            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Chunk fetch error for GC: {chunk_er}")
+                        else:
+                            time.sleep(5.0)
+                
+                # APIへの負荷軽減のため2秒待機（必須）
+                time.sleep(2.0)
+                
+            # JSONデータのフォーマット作成と保存
+            final_output = {}
+            for iid in gc_item_ids:
+                hq_price = raw_prices.get(iid, {}).get("hq", 0)
+                server = raw_prices.get(iid, {}).get("hq_server", "Japan")
+                
+                if not hq_price or hq_price == 0:
+                    hq_price = raw_prices.get(iid, {}).get("nq", 0)
+                    server = raw_prices.get(iid, {}).get("nq_server", "Japan")
+                
+                mats = all_mats_required.get(iid, {})
+                mat_details = {}
+                total_craft_cost = 0
+                
+                for mid, amt in mats.items():
+                    mat_price_info = raw_prices.get(mid, {})
+                    m_price = mat_price_info.get("nq", 0)
+                    if m_price == 0:
+                        m_price = mat_price_info.get("hq", 0)
+                        
+                    mat_name = craft_fetcher.items.get(str(mid), {}).get('ja', f'Unknown({mid})')
+                    
+                    mat_details[str(mid)] = {
+                        "name": mat_name,
+                        "amount": amt,
+                        "price": m_price
+                    }
+                    total_craft_cost += m_price * amt
+                    
+                final_output[str(iid)] = {
+                    "price": hq_price,
+                    "server": server,
+                    "craft_cost": total_craft_cost,
+                    "mats": mat_details
+                }
+                
+            if final_output:
+                with open(out_path, 'w', encoding='utf-8') as f:
+                    json.dump(final_output, f, ensure_ascii=False)
+                print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Successfully saved GC Supply market prices ({len(final_output)} items).")
+                
+        except Exception as e:
+            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Error in gc price worker loop: {e}")
+            
+        time.sleep(3600)
+
+def levequest_price_worker():
+    """バックグラウンドでリーヴアイテムのマーケット価格を1日1回更新するスレッド"""
+    import urllib.parse
+    base_dir = os.path.dirname(os.path.abspath(os.getcwd()))
+    json_path = os.path.join(base_dir, 'levequests', 'levequests.json')
+    out_path = os.path.join(base_dir, 'levequests', 'market_prices.json')
+    
+    # サーバー立ち上げ直後の安全マージン（他の起動処理を邪魔しないように）
+    time.sleep(10)
+    
+    while True:
+        try:
+            # 1. levequests.json から対象アイテムIDを取得
+            if not os.path.exists(json_path):
+                time.sleep(60)
+                continue
+                
+            # 2. market_prices.json の更新日時をチェック（24時間以上経過しているか）
+            needs_update = True
+            if os.path.exists(out_path):
+                mtime = os.path.getmtime(out_path)
+                if (time.time() - mtime) < 86400: # 24時間以内の場合は不要
+                    needs_update = False
+                    
+            if not needs_update:
+                time.sleep(3600) # 1時間ごとにチェック
+                continue
+                
+            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Starting to fetch Levequest HQ market & mats prices.")
+                
+            with open(json_path, 'r', encoding='utf-8') as f:
+                leve_data = json.load(f)
+                
+            leve_item_ids = set()
+            for exp, jobs in leve_data.items():
+                for job, items in jobs.items():
+                    for item in items:
+                        if 'item_id' in item:
+                            leve_item_ids.add(int(item['item_id']))
+                            
+            # Calculate raw materials needed for EACH leve item
+            all_mats_required = {} # leve_id: {mat_id: amount}
+            mat_item_ids = set()
+            
+            for iid in leve_item_ids:
+                mats, crafts = craft_fetcher.get_base_mats_and_crafts(iid)
+                all_mats_required[iid] = mats
+                for mid in mats:
+                    mat_item_ids.add(mid)
+            
+            all_target_ids = list(leve_item_ids | mat_item_ids)
+            if not all_target_ids:
+                time.sleep(3600)
+                continue
+                
+            # 3. Universalisからの取得（100件ずつ、負荷軽減のため間に待機を入れる）
+            raw_prices = {}
+            chunk_size = 100
+            for i in range(0, len(all_target_ids), chunk_size):
+                chunk = all_target_ids[i:i + chunk_size]
+                chunk_str = ",".join(map(str, chunk))
+                url = f"https://universalis.app/api/v2/Japan/{chunk_str}?listings=10&entries=0"
+                
+                req = urllib.request.Request(url, headers={'User-Agent': 'FF14_Dashboard/1.0'})
+                for retry in range(3):
+                    try:
+                        with urllib.request.urlopen(req, timeout=30) as response:
+                            data = json.loads(response.read().decode())
+                            
+                            items = data.get('items', {})
+                            if not items and 'itemID' in data:
+                                items = {str(data['itemID']): data}
+
+                            for iid_str, idata in items.items():
+                                listings = idata.get('listings', [])
+                                
+                                min_hq_price = 0
+                                min_price = 0
+                                hq_server = 'Japan'
+                                nq_server = 'Japan'
+                                
+                                if listings:
+                                    hq_listings = [l for l in listings if l.get('hq') == True]
+                                    if hq_listings:
+                                        hq_listings.sort(key=lambda x: x.get('pricePerUnit', 0))
+                                        min_hq_price = hq_listings[0].get('pricePerUnit', 0)
+                                        hq_server = hq_listings[0].get('worldName', 'Japan')
+                                        
+                                    all_listings = sorted(listings, key=lambda x: x.get('pricePerUnit', 0))
+                                    min_price = all_listings[0].get('pricePerUnit', 0)
+                                    nq_server = all_listings[0].get('worldName', 'Japan')
+                                    
+                                if min_hq_price == 0:
+                                    min_hq_price = idata.get('minPriceHQ', 0)
+                                if min_price == 0:
+                                    min_price = idata.get('minPrice', 0)
+                                    
+                                raw_prices[int(iid_str)] = {
+                                    "hq": min_hq_price,
+                                    "nq": min_price,
+                                    "hq_server": hq_server,
+                                    "nq_server": nq_server
+                                }
+                                    
+                        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Fetched Levequest prices [{min(i+len(chunk), len(all_target_ids))}/{len(all_target_ids)}]")
+                        break # Success, escape retry loop
+                    except Exception as chunk_er:
+                        if retry == 2:
+                            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Chunk fetch error for Levequests: {chunk_er}")
+                        else:
+                            time.sleep(5.0)
+                
+                # APIへの負荷軽減のため2秒待機（必須）
+                time.sleep(2.0)
+                
+            # 4. JSONデータのフォーマット作成と保存
+            final_output = {}
+            for iid in leve_item_ids:
+                hq_price = raw_prices.get(iid, {}).get("hq", 0)
+                server = raw_prices.get(iid, {}).get("hq_server", "Japan")
+                
+                if not hq_price or hq_price == 0:
+                    hq_price = raw_prices.get(iid, {}).get("nq", 0)
+                    server = raw_prices.get(iid, {}).get("nq_server", "Japan")
+                
+                mats = all_mats_required.get(iid, {})
+                mat_details = {}
+                total_craft_cost = 0
+                
+                for mid, amt in mats.items():
+                    mat_price_info = raw_prices.get(mid, {})
+                    m_price = mat_price_info.get("nq", 0)
+                    if m_price == 0:
+                        m_price = mat_price_info.get("hq", 0)
+                        
+                    mat_name = craft_fetcher.items.get(str(mid), {}).get('ja', f'Unknown({mid})')
+                    
+                    mat_details[str(mid)] = {
+                        "name": mat_name,
+                        "amount": amt,
+                        "price": m_price
+                    }
+                    total_craft_cost += m_price * amt
+                    
+                final_output[str(iid)] = {
+                    "price": hq_price,
+                    "server": server,
+                    "craft_cost": total_craft_cost,
+                    "mats": mat_details
+                }
+                
+            if final_output:
+                with open(out_path, 'w', encoding='utf-8') as f:
+                    json.dump(final_output, f, ensure_ascii=False)
+                print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Successfully saved Levequest market prices ({len(final_output)} items).")
+                
+        except Exception as e:
+            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Error in levequest price worker loop: {e}")
+            
+        # 1日1回の更新とするが、プロセス監視自体は1時間に一度チェックする
+        time.sleep(3600)
+
 if __name__ == "__main__":
     # バックグラウンド更新スレッドの開始
     bg_thread = threading.Thread(target=market_price_worker, daemon=True)
     bg_thread.start()
+    
+    # リーヴ用バックグラウンドスレッドの開始
+    leve_bg_thread = threading.Thread(target=levequest_price_worker, daemon=True)
+    leve_bg_thread.start()
+    
+    # グラカン納品用バックグラウンドスレッドの開始
+    gc_bg_thread = threading.Thread(target=gc_supply_price_worker, daemon=True)
+    gc_bg_thread.start()
     
     # サーバーの起動
     run_server()

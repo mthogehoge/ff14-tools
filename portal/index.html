@@ -24,7 +24,7 @@
 
     <main>
         <!-- Cosmo Explorer Dashboard -->
-        <a href="http://localhost:8000" class="card" target="_blank">
+        <a href="/" class="card" target="_blank">
             <div class="card-icon">🚀</div>
             <div class="card-title">
                 コスモ・ダッシュボード
@@ -73,17 +73,36 @@
             </div>
         </a>
 
-        <!-- Placeholder for future tools -->
-        <a href="#" class="card" style="opacity: 0.6; cursor: default;" id="coming-soon-link">
-            <div class="card-icon">🔨</div>
+        <!-- Levequests Database -->
+        <a href="/levequests/index.html" class="card" target="_blank">
+            <div class="card-icon">📦</div>
             <div class="card-title">
-                新規ツール（追加予定）
+                製作リーヴ納品一覧
+                <span class="badge"
+                    style="color:#10b981; border-color:#10b981; background:rgba(16,185,129,0.1)">New!</span>
             </div>
             <p class="card-desc">
-                今後作成される生産マクロ支援ツールや、ギャザラーアラーム、リテイナー管理情報などがここに追加される予定です。
+                新生から黄金までの全クラフターの製作リーヴ納品アイテムを網羅したデータベースです。拡張・ジョブごとにワンクリックで絞り込めます。<br><br>
+                ※ Cosmo Dashboardと同じサーバー(8000番)内で動作するように統合されました。
             </p>
-            <div class="card-footer" style="color:var(--text-muted)">
-                Coming Soon... <span></span>
+            <div class="card-footer" style="color:#10b981">
+                Port: 8000 <span>Launch &rarr;</span>
+            </div>
+        </a>
+
+        <!-- Grand Company Supply -->
+        <a href="/levequests/gc_supply.html" class="card" target="_blank">
+            <div class="card-icon">🪖</div>
+            <div class="card-title">
+                グランドカンパニー 納品リスト一覧
+                <span class="badge"
+                    style="color:#f7ce55; border-color:#f7ce55; background:rgba(247,206,85,0.1)">New!</span>
+            </div>
+            <p class="card-desc">
+                現在のプレイヤーレベルを入力するだけで、クラフター＆ギャザラー11クラスの「本日の調達任務（グラカン納品）」の候補アイテム一覧を瞬時に表示します。
+            </p>
+            <div class="card-footer" style="color:#f7ce55;">
+                Port: 8000 <span>Launch &rarr;</span>
             </div>
         </a>
     </main>
