@@ -14,14 +14,14 @@ ZONES = [
     {
         "en_name": "The Tempest",
         "title": "テンペスト（オイジュス）",
-        "condition_disp": "快晴 / 曇り",
-        "match": ["快晴", "曇り"]
+        "condition_disp": "晴れ / 曇り",
+        "match": ["晴れ", "曇り"]
     },
     {
         "en_name": "Eastern Thanalan",
         "title": "東ザナラーン（パエンナ）",
         "condition_disp": "雨 / 曇り",
-        "match": ["雨", "曇り"]
+        "match": ["雨", "暴雨", "霧", "曇り"]
     },
     {
         "en_name": "Ultima Thule",
@@ -403,7 +403,8 @@ def generate_html(forecast_data):
             weather_html += "今後6時間、該当天候なし"
         else:
             for m in matches:
-                weather_html += f"""                    <div class="result-item"><span class="result-time">{m['time_text']}</span> <span class="weather-badge">{m['weather']}</span></div>
+                highlight = " style='color:#f7ce55; font-weight:bold; border: 1px solid #f7ce55; padding: 1px 4px; border-radius: 4px;'" if m['weather'] in z['match'] else ""
+                weather_html += f"""                    <div class="result-item"><span class="result-time">{m['time_text']}</span> <span class="weather-badge"{highlight}>{m['weather']}</span></div>
 """
                 
         weather_html += """                </div>
@@ -593,6 +594,16 @@ def generate_html(forecast_data):
         else:
             area_disp = area_short
 
+        # 天候マッチ判定
+        is_weather_matching = False
+        current_lt = time.time()
+        for z in ZONES:
+            if z["title"] == area:
+                current_weather = EorzeaWeather.forecast(z["en_name"], [current_lt], lang=EorzeaLang.JA)[0]
+                is_weather_matching = any(w in current_weather for w in z["match"])
+                break
+
+        active_missions = []
         for row in mdata['schedule']:
             time_str = row['time'].replace('ET ', '')
             time_parts = time_str.split('～')
@@ -608,102 +619,107 @@ def generate_html(forecast_data):
                     is_act = (now_et_hour >= start_h or now_et_hour < end_h)
                     
                 if is_act:
-                    mission_name = row['mission']
+                    active_missions.append(row['mission'])
                     
-                    # 対象クラスの判定
-                    is_gatherer = any(gj in mission_name for gj in allowed_gatherers)
-                    is_crafter = any(cj in mission_name for cj in allowed_crafters)
+        if is_weather_matching:
+            active_missions.append("EX+: 天候(クラフター)")
+            active_missions.append("EX+: 天候(ギャザラー)")
+            
+        for mission_name in active_missions:
+            # 対象クラスの判定
+            is_gatherer = any(gj in mission_name for gj in allowed_gatherers) or "ギャザラー" in mission_name
+            is_crafter = any(cj in mission_name for cj in allowed_crafters) or "クラフター" in mission_name
                     
-                    if is_gatherer or is_crafter:
-                        if "EX+" in mission_name:
-                            # ジョブ特化型のEV計算
-                            cosmo, local, manuals, chips = 0, 0, 0, 0
-                            cert_pr = 0
-                            
-                            # エリア判定（元の文字列で判定）
-                            if "パエンナ" in area:
-                                cert_pr = cert_paenna_price
-                                if is_crafter:
-                                    cosmo, local, manuals, chips = 75, 50, 180, 0
-                                else:
-                                    cosmo, local, manuals, chips = 75, 50, 75, 0
-                            elif "オイジュス" in area:
-                                cert_pr = cert_oizys_price
-                                if is_crafter:
-                                    # クラフターの天候EX+の最大値を採用（234チップ、215手形）
-                                    cosmo, local, manuals, chips = 65, 43, 215, 234
-                                elif "漁師" in mission_name:
-                                    cosmo, local, manuals, chips = 26, 17, 85, 107
-                                else:
-                                    # 採掘園芸
-                                    cosmo, local, manuals, chips = 25, 17, 85, 108
-                            elif "ウルティマ・トゥーレ" in area:
-                                cert_pr = 0  # 証書なし
-                                if is_crafter:
-                                    cosmo, local, manuals, chips = 65, 43, 0, 0
-                                elif "漁師" in mission_name:
-                                    cosmo, local, manuals, chips = 26, 17, 0, 0
-                                else:
-                                    cosmo, local, manuals, chips = 25, 17, 0, 0
+            if is_gatherer or is_crafter:
+                if "EX+" in mission_name:
+                    # ジョブ特化型のEV計算
+                    cosmo, local, manuals, chips = 0, 0, 0, 0
+                    cert_pr = 0
+                    
+                    # エリア判定（元の文字列で判定）
+                    if "パエンナ" in area:
+                        cert_pr = cert_paenna_price
+                        if is_crafter:
+                            cosmo, local, manuals, chips = 75, 50, 180, 0
+                        else:
+                            cosmo, local, manuals, chips = 75, 50, 75, 0
+                    elif "オイジュス" in area:
+                        cert_pr = cert_oizys_price
+                        if is_crafter:
+                            # クラフターの天候EX+の最大値を採用（234チップ、215手形）
+                            cosmo, local, manuals, chips = 65, 43, 215, 234
+                        elif "漁師" in mission_name:
+                            cosmo, local, manuals, chips = 26, 17, 85, 107
+                        else:
+                            # 採掘園芸
+                            cosmo, local, manuals, chips = 25, 17, 85, 108
+                    elif "ウルティマ・トゥーレ" in area:
+                        cert_pr = 0  # 証書なし
+                        if is_crafter:
+                            cosmo, local, manuals, chips = 65, 43, 0, 0
+                        elif "漁師" in mission_name:
+                            cosmo, local, manuals, chips = 26, 17, 0, 0
+                        else:
+                            cosmo, local, manuals, chips = 25, 17, 0, 0
 
-                            ev_credits = (cosmo + local * AREA_TO_COSMO_RATIO) * max_efficiency
-                            ev_manuals = (manuals / 100.0) * cert_pr
-                            ev_chips = (chips / 200.0) * pack_price
-                            total_ev = ev_credits + ev_manuals + ev_chips
-                            breakdown_str = f"クレ: {int(ev_credits):,} / 証書: {int(ev_manuals):,} / パック: {int(ev_chips):,}"
-                            
-                            short_job = mission_name.replace('EX+: ', '')
-                            
-                            if is_crafter:
-                                if area_disp not in active_ex_crafter_areas:
-                                    active_ex_crafter_areas[area_disp] = {'jobs': [], 'ev': total_ev, 'breakdown': breakdown_str}
-                                if short_job not in active_ex_crafter_areas[area_disp]['jobs']:
-                                    active_ex_crafter_areas[area_disp]['jobs'].append(short_job)
-                                if total_ev > active_ex_crafter_areas[area_disp]['ev']:
-                                    active_ex_crafter_areas[area_disp]['ev'] = total_ev
-                                    active_ex_crafter_areas[area_disp]['breakdown'] = breakdown_str
-                            else:
-                                if area_disp not in active_ex_gatherer_areas:
-                                    active_ex_gatherer_areas[area_disp] = {'jobs': [], 'ev': total_ev, 'breakdown': breakdown_str}
-                                if short_job not in active_ex_gatherer_areas[area_disp]['jobs']:
-                                    active_ex_gatherer_areas[area_disp]['jobs'].append(short_job)
-                                if total_ev > active_ex_gatherer_areas[area_disp]['ev']:
-                                    active_ex_gatherer_areas[area_disp]['ev'] = total_ev
-                                    active_ex_gatherer_areas[area_disp]['breakdown'] = breakdown_str
+                    ev_credits = (cosmo + local * AREA_TO_COSMO_RATIO) * max_efficiency
+                    ev_manuals = (manuals / 100.0) * cert_pr
+                    ev_chips = (chips / 200.0) * pack_price
+                    total_ev = ev_credits + ev_manuals + ev_chips
+                    breakdown_str = f"クレ: {int(ev_credits):,} / 証書: {int(ev_manuals):,} / パック: {int(ev_chips):,}"
+                    
+                    short_job = mission_name.replace('EX+: ', '')
+                    
+                    if is_crafter:
+                        if area_disp not in active_ex_crafter_areas:
+                            active_ex_crafter_areas[area_disp] = {'jobs': [], 'ev': total_ev, 'breakdown': breakdown_str}
+                        if short_job not in active_ex_crafter_areas[area_disp]['jobs']:
+                            active_ex_crafter_areas[area_disp]['jobs'].append(short_job)
+                        if total_ev > active_ex_crafter_areas[area_disp]['ev']:
+                            active_ex_crafter_areas[area_disp]['ev'] = total_ev
+                            active_ex_crafter_areas[area_disp]['breakdown'] = breakdown_str
+                    else:
+                        if area_disp not in active_ex_gatherer_areas:
+                            active_ex_gatherer_areas[area_disp] = {'jobs': [], 'ev': total_ev, 'breakdown': breakdown_str}
+                        if short_job not in active_ex_gatherer_areas[area_disp]['jobs']:
+                            active_ex_gatherer_areas[area_disp]['jobs'].append(short_job)
+                        if total_ev > active_ex_gatherer_areas[area_disp]['ev']:
+                            active_ex_gatherer_areas[area_disp]['ev'] = total_ev
+                            active_ex_gatherer_areas[area_disp]['breakdown'] = breakdown_str
 
-                        elif "A" in mission_name:
-                            if is_crafter and "オイジュス" in area_disp:
-                                # Aランクの報酬 (コスモ50, ローカル40, チップ42 -> 4ゴールドで +15% 増加 = 57, 46, 48)
-                                cosmo, local, manuals, chips = 57, 46, 0, 48 
-                                
-                                ev_credits = (cosmo + local * AREA_TO_COSMO_RATIO) * max_efficiency
-                                ev_chips = (chips / 200.0) * pack_price
-                                total_ev = ev_credits + ev_chips
-                                breakdown_str = f"クレ: {int(ev_credits):,} / 証書: 0 / パック: {int(ev_chips):,}"
-                                
-                                short_job = mission_name.replace('Aランク: ', '').replace('A1: ', '').replace('A3: ', '')
-                                
-                                # Use dictionary tracking for Crafter A-Ranks to enable Gil calculation readouts
-                                if 'areas' not in locals() or not isinstance(active_a_crafter, dict):
-                                    # Need to convert active_a_crafter to a dict in the main loop instead of an array.
-                                    pass
-                                
-                                if area_disp not in active_a_crafter:
-                                    active_a_crafter[area_disp] = {'jobs': [], 'ev': total_ev, 'breakdown': breakdown_str}
-                                if short_job not in active_a_crafter[area_disp]['jobs']:
-                                    active_a_crafter[area_disp]['jobs'].append(short_job)
-                                if total_ev > active_a_crafter[area_disp]['ev']:
-                                    active_a_crafter[area_disp]['ev'] = total_ev
-                                    active_a_crafter[area_disp]['breakdown'] = breakdown_str
-                            else:
-                                if is_gatherer:
-                                    active_a_gatherer.append(f"{area_disp} ({mission_name})")
-                                else:
-                                    # For other areas or unknown A-rank data, fallback to old array formatting string
-                                    # Since active_a_crafter is now a dict, we will store it under 'Other'
-                                    if 'Other' not in active_a_crafter:
-                                        active_a_crafter['Other'] = {'jobs': [], 'ev': 0, 'breakdown': ''}
-                                    active_a_crafter['Other']['jobs'].append(f"{area_disp} ({mission_name})")
+                elif "A" in mission_name:
+                    if is_crafter and "オイジュス" in area_disp:
+                        # Aランクの報酬 (コスモ50, ローカル40, チップ42 -> 4ゴールドで +15% 増加 = 57, 46, 48)
+                        cosmo, local, manuals, chips = 57, 46, 0, 48 
+                        
+                        ev_credits = (cosmo + local * AREA_TO_COSMO_RATIO) * max_efficiency
+                        ev_chips = (chips / 200.0) * pack_price
+                        total_ev = ev_credits + ev_chips
+                        breakdown_str = f"クレ: {int(ev_credits):,} / 証書: 0 / パック: {int(ev_chips):,}"
+                        
+                        short_job = mission_name.replace('Aランク: ', '').replace('A1: ', '').replace('A3: ', '')
+                        
+                        # Use dictionary tracking for Crafter A-Ranks to enable Gil calculation readouts
+                        if 'areas' not in locals() or not isinstance(active_a_crafter, dict):
+                            # Need to convert active_a_crafter to a dict in the main loop instead of an array.
+                            pass
+                        
+                        if area_disp not in active_a_crafter:
+                            active_a_crafter[area_disp] = {'jobs': [], 'ev': total_ev, 'breakdown': breakdown_str}
+                        if short_job not in active_a_crafter[area_disp]['jobs']:
+                            active_a_crafter[area_disp]['jobs'].append(short_job)
+                        if total_ev > active_a_crafter[area_disp]['ev']:
+                            active_a_crafter[area_disp]['ev'] = total_ev
+                            active_a_crafter[area_disp]['breakdown'] = breakdown_str
+                    else:
+                        if is_gatherer:
+                            active_a_gatherer.append(f"{area_disp} ({mission_name})")
+                        else:
+                            # For other areas or unknown A-rank data, fallback to old array formatting string
+                            # Since active_a_crafter is now a dict, we will store it under 'Other'
+                            if 'Other' not in active_a_crafter:
+                                active_a_crafter['Other'] = {'jobs': [], 'ev': 0, 'breakdown': ''}
+                            active_a_crafter['Other']['jobs'].append(f"{area_disp} ({mission_name})")
 
     # 妥協案（通常EX）の計算
     fallback_crafter_ev = ((22 + 13 * AREA_TO_COSMO_RATIO) * max_efficiency) + ((57 / 200.0) * pack_price)
@@ -714,13 +730,17 @@ def generate_html(forecast_data):
 
     # クラフター向け提案
     recommend_html += "<li style='margin-top: 15px;'><strong style='color: #e2f1f8;'>【クラフター (革・彫・錬)】金策タスク:</strong><br>"
+    has_crafter_tasks = False
     if active_ex_crafter_areas:
+        has_crafter_tasks = True
         job_disps = [f"{a} (EX+: {', '.join(d['jobs'])})" for a, d in active_ex_crafter_areas.items()]
         recommend_html += f"<span style='color: #f7ce55;'>EX+発生中:</span> <span style='color: #8da1b5; font-size: 13px;'>{', '.join(job_disps)}</span><br>"
         for a, d in active_ex_crafter_areas.items():
             recommend_html += f"<span style='font-size: 11px; color: #f7ce55;'>(※1回あたり クラフター({a}) 最大報酬想定 → 実質約 <strong>{int(d['ev']):,} gil</strong> 相当)</span><br>"
             recommend_html += f"<span style='font-size: 10px; color: #8da1b5; margin-left: 15px;'>[内訳] {d['breakdown']}</span><br>"
-    elif active_a_crafter:
+    
+    if active_a_crafter:
+        has_crafter_tasks = True
         a_job_disps = []
         for a, d in active_a_crafter.items():
             if a == 'Other':
@@ -733,7 +753,8 @@ def generate_html(forecast_data):
             if a != 'Other' and d['ev'] > 0:
                 recommend_html += f"<span style='font-size: 11px; color: #4ed8d1;'>(※1回あたり クラフター({a}) Aランク報酬想定 → 実質約 <strong>{int(d['ev']):,} gil</strong> 相当)</span><br>"
                 recommend_html += f"<span style='font-size: 10px; color: #8da1b5; margin-left: 15px;'>[内訳] {d['breakdown']}</span><br>"
-    else:
+                
+    if not has_crafter_tasks:
         recommend_html += "<span style='color: #5a6e7c; font-size: 13px;'>現在高ランクの時限ミッションはありません。</span><br>"
         recommend_html += f"<span style='color: #8da1b5; font-size: 13px; margin-top: 4px; display: inline-block;'>💡妥協案 (いつでも可能): <strong>オイジュス 通常EXミッション</strong></span><br>"
         recommend_html += f"<span style='font-size: 11px; color: #8da1b5;'>(※1回あたり クラフター(通常EX) 報酬想定 → 実質約 <strong>{int(fallback_crafter_ev):,} gil</strong> 相当)</span><br>"
@@ -742,15 +763,20 @@ def generate_html(forecast_data):
 
     # ギャザラー向け提案
     recommend_html += "<li style='margin-top: 10px;'><strong style='color: #e2f1f8;'>【ギャザラー (採・園・漁)】金策タスク:</strong><br>"
+    has_gatherer_tasks = False
     if active_ex_gatherer_areas:
+        has_gatherer_tasks = True
         job_disps = [f"{a} (EX+: {', '.join(d['jobs'])})" for a, d in active_ex_gatherer_areas.items()]
         recommend_html += f"<span style='color: #f7ce55;'>EX+発生中:</span> <span style='color: #8da1b5; font-size: 13px;'>{', '.join(job_disps)}</span><br>"
         for a, d in active_ex_gatherer_areas.items():
             recommend_html += f"<span style='font-size: 11px; color: #f7ce55;'>(※1回あたり ギャザラー({a}) 最大報酬想定 → 実質約 <strong>{int(d['ev']):,} gil</strong> 相当)</span><br>"
             recommend_html += f"<span style='font-size: 10px; color: #8da1b5; margin-left: 15px;'>[内訳] {d['breakdown']}</span><br>"
-    elif active_a_gatherer:
-        recommend_html += f"<span style='color: #4ed8d1;'>Aランク発生中:</span> <span style='color: #8da1b5; font-size: 13px;'>{', '.join(active_a_gatherer)}</span>"
-    else:
+            
+    if active_a_gatherer:
+        has_gatherer_tasks = True
+        recommend_html += f"<span style='color: #4ed8d1;'>Aランク発生中:</span> <span style='color: #8da1b5; font-size: 13px;'>{', '.join(active_a_gatherer)}</span><br>"
+        
+    if not has_gatherer_tasks:
         recommend_html += "<span style='color: #5a6e7c; font-size: 13px;'>現在高ランクの時限ミッションはありません。</span><br>"
         recommend_html += f"<span style='color: #8da1b5; font-size: 13px; margin-top: 4px; display: inline-block;'>💡妥協案 (いつでも可能): <strong>オイジュス 通常EXミッション</strong></span><br>"
         recommend_html += f"<span style='font-size: 11px; color: #8da1b5;'>(※1回あたり ギャザラー(通常EX) 報酬想定 → 実質約 <strong>{int(fallback_gatherer_ev):,} gil</strong> 相当)</span><br>"
