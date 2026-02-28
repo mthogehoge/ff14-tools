@@ -14,8 +14,8 @@ ZONES = [
     {
         "en_name": "The Tempest",
         "title": "テンペスト（オイジュス）",
-        "condition_disp": "晴れ / 曇り",
-        "match": ["晴れ", "曇り"]
+        "condition_disp": "快晴 / 曇り",
+        "match": ["快晴", "曇り"]
     },
     {
         "en_name": "Eastern Thanalan",
@@ -39,16 +39,14 @@ MISSION_DATA = [
             {"time": "ET 00:00～03:59", "mission": "EX+: 甲冑師"},
             {"time": "ET 04:00～07:59", "mission": "EX+: 彫金師"},
             {"time": "ET 04:00～07:59", "mission": "EX+: 漁師"},
-            {"time": "ET 04:00～07:59", "mission": "Aランク: 採掘師"},
             {"time": "ET 08:00～11:59", "mission": "EX+: 革細工師"},
-            {"time": "ET 08:00～11:59", "mission": "EX+: 採掘師"},
-            {"time": "ET 08:00～11:59", "mission": "Aランク: 鍛冶師"},
             {"time": "ET 12:00～15:59", "mission": "EX+: 裁縫師"},
-            {"time": "ET 12:00～15:59", "mission": "EX+: 園芸師"},
+            {"time": "ET 12:00～15:59", "mission": "EX+: 採掘師"},
+            {"time": "ET 16:00～19:59", "mission": "EX+: 木工師"},
             {"time": "ET 16:00～19:59", "mission": "EX+: 錬金術師"},
+            {"time": "ET 20:00～23:59", "mission": "EX+: 鍛冶師"},
             {"time": "ET 20:00～23:59", "mission": "EX+: 調理師"},
             {"time": "ET 20:00～23:59", "mission": "EX+: 園芸師"},
-            {"time": "ET 20:00～23:59", "mission": "Aランク: 錬金術師"},
         ]
     },
     {
@@ -280,11 +278,40 @@ RARE_ITEMS_DATA = [
 # キャッシュ用グローバル変数
 MARKET_PRICE_CACHE = {}
 CACHE_DURATION = 300 # 5分おきに更新
+MARKET_CACHE_FILE = "market_cache.json"
+
+def save_market_cache(cache):
+    """キャッシュをファイルに保存する"""
+    try:
+        # 辞書のキーを文字列に変換して保存（JSONはキーが文字列である必要がある）
+        serializable_cache = {str(k): v for k, v in cache.items()}
+        with open(MARKET_CACHE_FILE, 'w', encoding='utf-8') as f:
+            json.dump(serializable_cache, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Failed to save market cache: {e}")
+
+def load_market_cache():
+    """キャッシュをファイルから読み込む"""
+    try:
+        import os
+        if os.path.exists(MARKET_CACHE_FILE):
+            with open(MARKET_CACHE_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                # キーを整数に戻す
+                return {int(k): v for k, v in data.items()}
+    except Exception as e:
+        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Failed to load market cache: {e}")
+    return {}
 
 def market_price_worker():
     """バックグラウンドでマーケット価格を定期更新するスレッド"""
     global MARKET_PRICE_CACHE
     
+    # 起動時に以前のキャッシュをロード
+    MARKET_PRICE_CACHE = load_market_cache()
+    if MARKET_PRICE_CACHE:
+        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Loaded {len(MARKET_PRICE_CACHE)} items from persistent cache.")
+
     while True:
         try:
             item_ids = []
@@ -301,8 +328,9 @@ def market_price_worker():
                 continue
                 
             # Universalis API (Japan Region) - 負荷軽減のため10件ずつ分割して取得
-            new_cache = {}
             chunk_size = 10
+            any_updated = False
+            
             for i in range(0, len(item_ids), chunk_size):
                 chunk = item_ids[i:i + chunk_size]
                 item_ids_str = ",".join(chunk)
@@ -328,10 +356,12 @@ def market_price_worker():
                                 final_price = price or n_price or h_price or 0
                                 velocity = idata.get('regularSaleVelocity', 0)
                                 
-                                new_cache[int(iid_str)] = {
+                                # 個別にキャッシュを更新（以前のデータがあれば残る/最新が上書きされる）
+                                MARKET_PRICE_CACHE[int(iid_str)] = {
                                     'price': f"{int(final_price):,}" if final_price > 0 else "---",
                                     'velocity': velocity
                                 }
+                                any_updated = True
                         break # Success
                     except Exception as chunk_er:
                         if attempt < max_retries - 1:
@@ -342,9 +372,10 @@ def market_price_worker():
                 # APIへの負荷軽減のため少し待機
                 time.sleep(0.5)
             
-            if new_cache:
-                MARKET_PRICE_CACHE = new_cache
-                print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Market prices updated (Background, {len(new_cache)} items).")
+            if any_updated:
+                # 定期的にディスクへ保存
+                save_market_cache(MARKET_PRICE_CACHE)
+                print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Market prices updated and saved ({len(MARKET_PRICE_CACHE)} items).")
                 
         except Exception as e:
             print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Error in background price update loop: {e}")
@@ -640,29 +671,50 @@ def generate_html(forecast_data):
                     if "パエンナ" in area:
                         cert_pr = cert_paenna_price
                         if is_crafter:
-                            cosmo, local, manuals, chips = 75, 50, 180, 0
+                            # 1周回の固定値
+                            cosmo, local, manuals, chips = 325, 215, 215, 0
                         else:
-                            cosmo, local, manuals, chips = 75, 50, 75, 0
+                            # 採掘園芸EX+ (1周回、ボーナス1.1333倍考慮)
+                            cosmo = 140 * 1.1333
+                            local = 128 * 1.1333
+                            manuals = 95
+                            chips = 0
                     elif "オイジュス" in area:
                         cert_pr = cert_oizys_price
                         if is_crafter:
-                            # クラフターの天候EX+の最大値を採用（234チップ、215手形）
-                            cosmo, local, manuals, chips = 65, 43, 215, 234
+                            cosmo, local, manuals, chips = 325, 215, 215, 234
                         elif "漁師" in mission_name:
-                            cosmo, local, manuals, chips = 26, 17, 85, 107
+                            cosmo = 130 * 1.1333
+                            local = 85 * 1.1333
+                            manuals = 85
+                            chips = 107 * 1.1333
                         else:
-                            # 採掘園芸
-                            cosmo, local, manuals, chips = 25, 17, 85, 108
+                            cosmo = 125 * 1.1333
+                            local = 114 * 1.1333
+                            manuals = 85
+                            chips = 108 * 1.1333
                     elif "ウルティマ・トゥーレ" in area:
                         cert_pr = 0  # 証書なし
                         if is_crafter:
-                            cosmo, local, manuals, chips = 65, 43, 0, 0
+                            cosmo, local, manuals, chips = 325, 215, 0, 0
                         elif "漁師" in mission_name:
-                            cosmo, local, manuals, chips = 26, 17, 0, 0
+                            cosmo = 130 * 1.1333
+                            local = 85 * 1.1333
+                            manuals = 0
+                            chips = 0
                         else:
-                            cosmo, local, manuals, chips = 25, 17, 0, 0
+                            cosmo = 125 * 1.1333
+                            local = 114 * 1.1333
+                            manuals = 0
+                            chips = 0
 
-                    ev_credits = (cosmo + local * AREA_TO_COSMO_RATIO) * max_efficiency
+                    if is_crafter:
+                        # クラフターの1周回の計算 (コスモクレジットのギル換算を掛ける)
+                        ev_credits = (cosmo + local * AREA_TO_COSMO_RATIO) * max_efficiency
+                    else:
+                        # ギャザラーの1周回(約2.5分)の実質価値を算出
+                        ev_credits = (cosmo + local * AREA_TO_COSMO_RATIO) * max_efficiency
+                    
                     ev_manuals = (manuals / 100.0) * cert_pr
                     ev_chips = (chips / 200.0) * pack_price
                     total_ev = ev_credits + ev_manuals + ev_chips
@@ -722,6 +774,7 @@ def generate_html(forecast_data):
                             active_a_crafter['Other']['jobs'].append(f"{area_disp} ({mission_name})")
 
     # 妥協案（通常EX）の計算
+    # ギャザラー通常EXも1周回基準にする
     fallback_crafter_ev = ((22 + 13 * AREA_TO_COSMO_RATIO) * max_efficiency) + ((57 / 200.0) * pack_price)
     fallback_crafter_breakdown = f"クレ: {int((22 + 13 * AREA_TO_COSMO_RATIO) * max_efficiency):,} / 証書: 0 / パック: {int((57 / 200.0) * pack_price):,}"
 
@@ -855,8 +908,6 @@ def generate_html(forecast_data):
             
             price_style = "color: #3cb8f6;" if market_price_str != "---" else "color: #5a6e7c;"
             
-            # 1クレジットあたりのギル計算
-            efficiency = "---"
             if market_price_str != "---":
                 try:
                     # "180,000" -> 180000
@@ -867,12 +918,16 @@ def generate_html(forecast_data):
                         efficiency = f"{gil / credit:.1f}"
                 except:
                     pass
+                
+                market_display = f"""<td class="item-price" style="{price_style}">{market_price_str} <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:{velocity:.1f})</span></td>"""
+            else:
+                market_display = f"""<td class="item-price" style="{price_style}">--- <span style="font-size:10px;color:#5a6e7c;">(取引不可 / 出品なし)</span></td>"""
             
             credit_html += f"""
                     <tr>
                         <td class="item-name">{item['name']}</td>
                         <td class="item-price">{item['price']} <span class="credit-icon">コスモクレジット</span></td>
-                        <td class="item-price" style="{price_style}">{market_price_str} <span style="font-size:9px;">gil</span> <span style="color:#5a6e7c;font-size:9px;">(速:{velocity:.1f})</span></td>
+                        {market_display}
                         <td class="item-price" style="color: #f7ce55;">{efficiency}</td>
                     </tr>
             """
@@ -1440,8 +1495,8 @@ class WeatherRequestHandler(http.server.SimpleHTTPRequestHandler):
 
 def run_server():
     with socketserver.TCPServer(("", PORT), WeatherRequestHandler) as httpd:
-        print(f"✅ サーバーを起動しました。ブラウザで http://localhost:{PORT} にアクセスしてください。")
-        print("💡 終了するには Ctrl+C を押してください。")
+        print(f"[OK] サーバーを起動しました。ブラウザで http://localhost:{PORT} にアクセスしてください。")
+        print("[INFO] 終了するには Ctrl+C を押してください。")
         try:
             httpd.serve_forever()
         except KeyboardInterrupt:
