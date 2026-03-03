@@ -1,9 +1,10 @@
 import json
 import os
 
-items_path = r'c:\Users\81909\Desktop\ff14\universalis_tools\teamcraft_items.json'
-recipes_path = r'c:\Users\81909\Desktop\ff14\recipes.json'
-output_path = r'c:\Users\81909\Desktop\ff14\submarine_materials\data.js'
+base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+items_path = os.path.join(base_dir, 'universalis_tools', 'teamcraft_items.json')
+recipes_path = os.path.join(base_dir, 'recipes.json')
+output_path = os.path.join(base_dir, 'submarine_materials', 'data.js')
 
 SUB_PLAN = {
     'shark': {'hull': {'normal': 21792, 'modified': 22526}, 'stern': {'normal': 21793, 'modified': 22527}, 'bow': {'normal': 21794, 'modified': 22528}, 'bridge': {'normal': 21795, 'modified': 22529}},
